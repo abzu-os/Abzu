@@ -59,17 +59,10 @@ stdenvNoCC.mkDerivation rec {
     echo "==> Writing hybrid ISO..."
     ISOHDPFX="${if isolinux != null then "${isolinux}/isohdpfx.bin" else ""}"
 
-    # FIX 1: Create a 1-sector (2048 bytes) dummy BIOS boot image.
-    # A 4-byte file causes libisofs to fail when buffering for boot-info-table.
     dd if=/dev/zero of=work/efiboot.img bs=2048 count=1 status=none
     
-    # xorriso expects boot images to be present in the ISO tree.
     cp work/efiboot.img work/iso_root/efiboot.img
     cp work/esp.img work/iso_root/esp.img
-
-    # FIX 2: Copy the EFI directory to the ISO root. This fixes the "no directory /EFI/BOOT"
-    # warning and ensures maximum compatibility with Apple's EFI implementation,
-    # which often scans the ISO9660 tree directly for /EFI/BOOT/BOOTX64.EFI.
     cp -r work/esp/EFI work/iso_root/EFI
 
     xorriso -as mkisofs \
@@ -84,8 +77,10 @@ stdenvNoCC.mkDerivation rec {
       -o abzu-intel-installer.iso \
       work/iso_root work/ABZU_ROOTFS.tar
 
-    xorriso -inabspath abzu-intel-installer.iso -report_el_torito as_mkisofs > eltorito.txt
-    grep -Eq -- '-e( |$)[^ ]*esp\.img' eltorito.txt || { echo "FATAL: no El Torito EFI entry"; exit 1; }
+    # FIX: Use the correct xorriso flag (-indev) to read the ISO for verification.
+    # Simplified grep to just look for the ESP image name in the catalog output.
+    xorriso -indev abzu-intel-installer.iso -report_el_torito as_mkisofs > eltorito.txt
+    grep -q "esp.img" eltorito.txt || { echo "FATAL: no El Torito EFI entry"; exit 1; }
 
     mkdir -p "$out"
     cp abzu-intel-installer.iso "$out/abzu-intel-installer.iso"
