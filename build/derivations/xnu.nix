@@ -1,71 +1,22 @@
 # build/derivations/xnu.nix
-# Unified XNU kernel derivation: supports local pre-compiled binary fetching
-# to bypass cross-compilation SDK requirements.
-{ lib, stdenv, stdenvNoCC, fetchurl, clang ? null, llvm ? null, cctools ? null
+{ lib, stdenv, stdenvNoCC, clang ? null, llvm ? null, cctools ? null
 , xnu-sources ? null, srcInfo, patches ? []
 , precompiled ? false
-, kernelPath ? "/Users/alinamarsfelder/Downloads/mach_kernel"
-# flake.nix threads the hash of the local mach_kernel through as `kernelHash`
-# (and, for boot.efi, `bootEfiPath` / `bootEfiHash`). The lambda used to accept
-# none of these, so `nix build .#iso-intel` died at eval time with:
-#   error: function 'anonymous lambda' called with unexpected argument 'kernelHash'
-# They are declared here so the call evaluates; kernelHash is consumed below in
-# place of the hardcoded SRI hash.
-, kernelHash ? null
-, bootEfiPath ? null
-, bootEfiHash ? null
+, kernelPath ? "/Users/alinamarsfelder/kernel"
 }:
 
 if precompiled then
-  # MODE A: Pre-compiled binary (local file supplied by the user)
   stdenvNoCC.mkDerivation rec {
     pname = "xnu-kernel-precompiled";
-    version = "10.15.7"; # Catalina era
+    version = "10.15.7";
 
-    src =
-      if kernelPath == null || ! builtins.pathExists kernelPath then
-        throw ''
-          abzu: no Intel XNU kernel binary available at ${toString kernelPath}.
-          Copy the kernel off your Catalina (10.15.x) install:
-            cp /System/Library/Kernels/kernel /path/to/mach_kernel
-          Then update kernelPath in this file or flake.nix.
-        ''
-      else
-        # AUDIT FIX (2026-10-11, second pass): `fetchurl` rejects file:// URLs
-        # whose path is not inside its allowed content directory
-        # (/nix/store/...): fetching a local mach_kernel from e.g.
-        # ~/.local/state/catalina/mach_kernel aborted with
-        #   error: cannot fetch file:// URL outside of the store/content dir
-        # on every local build. `builtins.path` copies the file into the store
-        # at eval time and verifies the SHA-256 there - exactly the same
-        # integrity guarantee, no network fetcher involved. The hash is
-        # normalised so plain hex ("sha256:<hex>" or bare 64-hex) and SRI
-        # ("sha256-...=") forms all work; base32 digests are passed through
-        # untouched because lib has no base32-to-hex converter (and Nix
-        # accepts any digest literal format as a string). When no
-        # ABZU_KERNEL_HASH is supplied we fall back to the historically pinned
-        # base32 hash (unchanged behaviour); override it via ABZU_KERNEL_HASH
-        # with the digest of YOUR kernel (`nix hash path mach_kernel`).
-        let
-          khStr = if kernelHash == null then "" else toString kernelHash;
-          mkPath = shaArg: builtins.path ({
-            path = /. + toString kernelPath;
-            name = "abzu-mach-kernel";
-          } // shaArg);
-          kernelSrc =
-            if khStr == "" then
-              mkPath { sha256 = "1lqx1qwnsmzb9cb1gbzlmdaxi565zpk41d51h81zf7hip8rwa6av"; }
-            else if lib.strings.hasPrefix "sha256-" khStr then
-              mkPath { hash = khStr; }
-            else if builtins.match "[0-9a-fA-F]{64}" khStr != null then
-              mkPath { sha256 = lib.toLower khStr; }
-            else if builtins.match "[0-9a-zA-Z]{52}" khStr != null then
-              # base32 (nix hash path output) - builtins.path parses it fine
-              mkPath { sha256 = khStr; }
-            else
-              throw ("ABZU: kernelHash " + khStr + " is not a recognised sha256 form "
-                     + "(expected sha256-<SRI>, 64-hex, or base32 from `nix hash path`).");
-        in kernelSrc;
+    # builtins.path copies the file into the Nix store and verifies the hash.
+    # If the file is missing, Nix will throw a clear OS-level error.
+    src = builtins.path {
+      path = kernelPath;
+      name = "abzu-mach-kernel";
+      sha256 = "1lqx1qwnsmzb9cb1gbzlmdaxi565zpk41d51h81zf7hip8rwa6av";
+    };
 
     phases = [ "installPhase" ];
 
@@ -83,7 +34,6 @@ if precompiled then
     };
   }
 else
-  # MODE B: Native Source Compilation (For your Mac Pro 5,1, x86_64-darwin host)
   stdenv.mkDerivation rec {
     pname = "xnu-kernel";
     version = srcInfo.xnuTag;
