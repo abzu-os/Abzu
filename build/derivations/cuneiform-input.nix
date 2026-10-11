@@ -1,8 +1,10 @@
 # build/derivations/cuneiform-input.nix
 # Native Darwin Cuneiform keyboard layout and toggle script
-{ lib, stdenvNoCC, runCommand }:
+{ lib, stdenvNoCC, runCommand, python3 }:
 
-runCommand "abzu-cuneiform-input" { } ''
+runCommand "abzu-cuneiform-input" {
+  nativeBuildInputs = [ python3 ];
+} ''
   # Create standard macOS directories for keyboard layouts and binaries
   mkdir -p "$out/Library/Keyboard Layouts"
   mkdir -p "$out/bin"
