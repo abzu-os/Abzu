@@ -70,11 +70,12 @@
         };
 
         # MODE A: Pre-compiled binary (Bypasses macOS SDK requirement)
-        # Clean, simple attribute set. Path updated to home directory root to bypass macOS Downloads folder permissions.
+        # BYOK (Bring Your Own Kernel): The user must supply this file locally.
+        # We use an absolute path outside the repo to comply with Apple's EULA.
         xnu-kernel-precompiled = pkgs.callPackage ./derivations/xnu.nix {
           inherit srcInfo;
           precompiled = true;
-          kernelPath = "/Users/alinamarsfelder/kernel";
+          kernelPath = /Users/alinamarsfelder/Abzu-Kernels/kernel; # <--- ABSOLUTE PATH (No quotes!)
         };
 
         openbsd-userland = pkgs.callPackage ./derivations/openbsd-userland.nix {
