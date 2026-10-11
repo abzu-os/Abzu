@@ -1,26 +1,11 @@
-# refind.nix — rEFInd EFI bootloader (GPLv3) staged for the ISO's ESP image.
-# Prebuilt binary release; we only repack it into an ESP-shaped tree.
+# build/derivations/refind.nix
+# rEFInd EFI bootloader (GPLv3) staged for the ISO's ESP image.
 { lib, stdenvNoCC, runCommand, fetchzip }:
 
 let
   version = "0.14.0.2";
   src = fetchzip {
     url = "https://downloads.sourceforge.net/project/refind/${version}/refind-bin-${version}.zip";
-    # NOTE ON THE HASH: `fetchzip` is a *recursive* fixed-output fetcher — its
-    # `hash` attribute is the SRI digest of the UNPACKED tree as exported by
-    # the builtin unpacker (tar -x / unzip into an empty dir), NOT the digest
-    # of the raw zip bytes. The previous pin here (sha256-Cir3nn...) was the
-    # raw-archive digest (0a2af79e... == base64 Cir3nn..., matching the
-    # distfiles.sha256 lock for build/distfiles/refind-bin.zip). That value is
-    # only correct for `fetchurl`; fed to `fetchzip`, every build failed with
-    # "hash mismatch in fixed-output derivation" because Nix compared it
-    # against the recursive-tree digest.
-    #
-    # Verified against the live SourceForge archive on 2026-10-10:
-    #   nix-prefetch-url --unpack <url>   -> raw sha256 0a2af79e... (unchanged)
-    #   actual nix build                  -> got sha256-rlUQEbpQK+8HgWBoYjKpOHOhPHfnDj5jQpv7Q3+0CgE=
-    # which decodes to ae551011ba502bef078160686232a93873a13c77e70e3e63429bfb437fb40a01.
-    # Refresh with `nix-prefetch-url --unpack <url>` if the mirror ever rotates.
     hash = "sha256-rlUQEbpQK+8HgWBoYjKpOHOhPHfnDj5jQpv7Q3+0CgE=";
     stripRoot = false;
   };
@@ -29,15 +14,19 @@ in runCommand "abzu-refind-${version}" {
 } ''
   set -e
   mkdir -p $out/EFI/BOOT $out/EFI/refind
-  R="${src}/refind-bin-${version}"
+  # FIX: The binaries are nested inside the /refind subfolder of the extracted zip
+  R="${src}/refind-bin-${version}/refind"
   
-  [ -d "$R/drivers_x64" ] && cp -r "$R/drivers_x64" $out/EFI/refind/drivers_x64 || true
-
-  # Extract rEFInd binaries (Include 64-bit, ARM64, and 32-bit for MBP 4,1 compatibility)
+  # FIX: The files are actually named refind_x64.efi, not refind_x64
   # CRITICAL: EFI executables MUST be 755 (executable), or the firmware will reject them.
-  [ -f "$R/refind_x64" ] && install -m755 "$R/refind_x64" $out/EFI/BOOT/BOOTX64.EFI || true
-  [ -f "$R/refind_aa64" ] && install -m755 "$R/refind_aa64" $out/EFI/BOOT/BOOTAA64.EFI || true
-  [ -f "$R/refind_ia32" ] && install -m755 "$R/refind_ia32" $out/EFI/BOOT/BOOTIA32.EFI || true # CRITICAL for MBP 4,1
+  # We removed '|| true' so the build fails loudly if the binaries are missing.
+  install -m755 "$R/refind_x64.efi" $out/EFI/BOOT/BOOTX64.EFI
+  install -m755 "$R/refind_ia32.efi" $out/EFI/BOOT/BOOTIA32.EFI # Critical for MBP 4,1 compatibility
+  
+  # Copy drivers and icons
+  [ -d "$R/drivers_x64" ] && cp -r "$R/drivers_x64" $out/EFI/refind/drivers_x64 || true
+  [ -d "$R/drivers_ia32" ] && cp -r "$R/drivers_ia32" $out/EFI/refind/drivers_ia32 || true
+  [ -d "$R/icons" ] && cp -r "$R/icons" $out/EFI/refind/icons || true
 
   # Generate a clean, Abzu-themed rEFInd configuration.
   #
@@ -51,8 +40,6 @@ in runCommand "abzu-refind-${version}" {
 timeout 5
 showtools shutdown, reboot, exit
 volume_label ABZU_ROOTFS
-# rEFInd auto-detects macOS via the EFI boot stub; we pin the entry so the
-# volume label and boot-args stay under our control.
 menuentry "Abzu Darwin" {
     icon \EFI\refind\icons\os_mac.png
     volume "ABZU_ROOTFS"
