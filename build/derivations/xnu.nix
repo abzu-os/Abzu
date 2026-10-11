@@ -14,7 +14,7 @@ if precompiled then
     # The --impure flag allows it to read paths outside the Nix store.
     src = fetchurl {
       url = "file://${kernelPath}";
-      hash = "sha256-YW7mt+eQjh2ICHHGE/QwHZS6LV69crGPBPRVhC2905M=";
+      hash = "sha256-WxnFM7oRHvcDgqG0QOb9xZTYVav0rxcWS+tXbTkOHdM=";
     };
 
     phases = [ "installPhase" ];
