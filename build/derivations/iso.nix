@@ -59,11 +59,18 @@ stdenvNoCC.mkDerivation rec {
     echo "==> Writing hybrid ISO..."
     ISOHDPFX="${if isolinux != null then "${isolinux}/isohdpfx.bin" else ""}"
 
-    dd if=/dev/zero of=work/efiboot.img bs=1 count=4 status=none
+    # FIX 1: Create a 1-sector (2048 bytes) dummy BIOS boot image.
+    # A 4-byte file causes libisofs to fail when buffering for boot-info-table.
+    dd if=/dev/zero of=work/efiboot.img bs=2048 count=1 status=none
     
     # xorriso expects boot images to be present in the ISO tree.
     cp work/efiboot.img work/iso_root/efiboot.img
     cp work/esp.img work/iso_root/esp.img
+
+    # FIX 2: Copy the EFI directory to the ISO root. This fixes the "no directory /EFI/BOOT"
+    # warning and ensures maximum compatibility with Apple's EFI implementation,
+    # which often scans the ISO9660 tree directly for /EFI/BOOT/BOOTX64.EFI.
+    cp -r work/esp/EFI work/iso_root/EFI
 
     xorriso -as mkisofs \
       -r -J -joliet-long \
@@ -71,7 +78,7 @@ stdenvNoCC.mkDerivation rec {
       -V "${volumeLabel}" \
       ${if isolinux != null then "-isohybrid-mbr $ISOHDPFX" else ""} \
       -c boot.catalog \
-      -b efiboot.img -no-emul-boot -boot-load-size 4 -boot-info-table \
+      -b efiboot.img -no-emul-boot \
       -e esp.img -no-emul-boot \
       -isohybrid-gpt-basdat \
       -o abzu-intel-installer.iso \
