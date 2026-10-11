@@ -139,6 +139,8 @@
           rootfs = rootfs-intel;
           refind = pkgs.callPackage ./derivations/refind.nix { };
           volumeLabel = "ABZU_ROOTFS";
+          # Explicitly null out Linux-only tools to prevent callPackage from injecting them on Darwin
+          mtools = null; dosfstools = null; libisoburn = null; hfsutils = null; hfsprogs = null;
         };
 
         xnu-kernel-release = xnu-kernel;
@@ -190,6 +192,8 @@
             rootfs = mkCrossIntelRootfs pkgsFor;
             refind = pkgsFor.native.callPackage ./derivations/refind.nix { };
             volumeLabel = "ABZU_ROOTFS";
+            # Explicitly null out Linux-only tools
+            mtools = null; dosfstools = null; libisoburn = null; hfsutils = null; hfsprogs = null;
           };
         }) // {
         
@@ -206,6 +210,8 @@
               rootfs = mkCrossIntelRootfs pkgsFor;
               refind = pkgsNative.callPackage ./derivations/refind.nix { };
               volumeLabel = "ABZU_ROOTFS";
+              # Explicitly null out Linux-only tools
+              mtools = null; dosfstools = null; libisoburn = null; hfsutils = null; hfsprogs = null;
             };
           in
           mNative // {
@@ -241,6 +247,8 @@
             rootfs = mkCrossIntelRootfs pkgsFor;
             refind = pkgsFor.native.callPackage ./derivations/refind.nix { };
             volumeLabel = "ABZU_ROOTFS";
+            # Explicitly null out Linux-only tools
+            mtools = null; dosfstools = null; libisoburn = null; hfsutils = null; hfsprogs = null;
           };
       };
 
