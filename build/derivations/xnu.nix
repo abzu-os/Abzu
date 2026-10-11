@@ -1,5 +1,5 @@
 # build/derivations/xnu.nix
-{ lib, stdenv, stdenvNoCC, clang ? null, llvm ? null, cctools ? null
+{ lib, stdenv, stdenvNoCC, fetchurl, clang ? null, llvm ? null, cctools ? null
 , xnu-sources ? null, srcInfo, patches ? []
 , precompiled ? false
 , kernelPath ? "/Users/alinamarsfelder/Abzu-Kernels/kernel"
@@ -10,11 +10,10 @@ if precompiled then
     pname = "xnu-kernel-precompiled";
     version = "10.15.7";
 
-    # builtins.path copies the file into the Nix store and verifies the SRI hash.
-    # If the file is missing, Nix will throw a clear OS-level error.
-    src = builtins.path {
-      path = kernelPath;
-      name = "abzu-mach-kernel";
+    # fetchurl with file:// is the correct way to fetch a local file with a hash.
+    # The --impure flag allows it to read paths outside the Nix store.
+    src = fetchurl {
+      url = "file://${kernelPath}";
       hash = "sha256-YW7mt+eQjh2ICHHGE/QwHZS6LV69crGPBPRVhC2905M=";
     };
 
