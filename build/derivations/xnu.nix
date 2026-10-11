@@ -2,7 +2,7 @@
 { lib, stdenv, stdenvNoCC, clang ? null, llvm ? null, cctools ? null
 , xnu-sources ? null, srcInfo, patches ? []
 , precompiled ? false
-, kernelPath ? "/Users/alinamarsfelder/kernel"
+, kernelPath ? "/Users/alinamarsfelder/Abzu-Kernels/kernel"
 }:
 
 if precompiled then
@@ -10,12 +10,12 @@ if precompiled then
     pname = "xnu-kernel-precompiled";
     version = "10.15.7";
 
-    # builtins.path copies the file into the Nix store and verifies the hash.
+    # builtins.path copies the file into the Nix store and verifies the SRI hash.
     # If the file is missing, Nix will throw a clear OS-level error.
     src = builtins.path {
       path = kernelPath;
       name = "abzu-mach-kernel";
-      sha256 = "1lqx1qwnsmzb9cb1gbzlmdaxi565zpk41d51h81zf7hip8rwa6av";
+      hash = "sha256-YW7mt+eQjh2ICHHGE/QwHZS6LV69crGPBPRVhC2905M=";
     };
 
     phases = [ "installPhase" ];
