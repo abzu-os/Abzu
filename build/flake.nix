@@ -10,8 +10,6 @@
     };
 
     gnustep-src = {
-      # NOTE: github:gnustep/core is not a real repository. 
-      # We use libs-base as a valid placeholder here to prevent evaluation failures.
       url = "github:gnustep/libs-base/master";
       flake = false;
     };
@@ -24,11 +22,9 @@
     , gnustep-src
     }@inputs:
     let
-      # Include x86_64-darwin so Intel Macs can build natively!
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" ];
       forAll = f: builtins.foldl' (r: s: r // f s) { } systems;
 
-      # Explicit list ensures correct patch application order
       kernelPatches = [
         ../kernel/patches/0001-abzu-identify-build-version.patch
         ../kernel/patches/0002-openbsd-wx-enforcement.patch
@@ -36,13 +32,12 @@
 
       srcInfo = {
         xnuRepo = "https://github.com/apple-oss-distributions/xnu.git";
-        xnuTag = "xnu-4903.278.28"; # Catalina 10.15.7 open-source tag
+        xnuTag = "xnu-4903.278.28";
         xnuRev = "xnu-4903.278.28";
         xnuSha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
         openbsdSnap = "auto(7.9)";
       };
 
-      # ---- Host and Cross-Compilation Package Sets ----
       mkPkgsFor = s:
         let native = nixpkgs.legacyPackages.${s}; in {
           inherit native;
@@ -54,11 +49,9 @@
           crossSparc64 = native.pkgsCross.sparc64-linux;
         };
 
-      # mkPkg defines the base packages for a given system.
       mkPkg = pkgs: pkgsSystem: rec {
         inherit pkgs;
 
-        # MODE B: Native Source Compilation (For your Mac Pro 5,1)
         xnu-kernel = pkgs.callPackage ./derivations/xnu.nix {
           inherit srcInfo;
           xnu-sources = pkgs.callPackage ./derivations/xnu-sources.nix { inherit srcInfo; };
@@ -69,13 +62,10 @@
           precompiled = false; 
         };
 
-        # MODE A: Pre-compiled binary (Bypasses macOS SDK requirement)
-        # BYOK (Bring Your Own Kernel): The user must supply this file locally.
-        # We use an absolute path outside the repo to comply with Apple's EULA.
         xnu-kernel-precompiled = pkgs.callPackage ./derivations/xnu.nix {
           inherit srcInfo;
           precompiled = true;
-          kernelPath = /Users/alinamarsfelder/Abzu-Kernels/kernel; # <--- ABSOLUTE PATH (No quotes!)
+          kernelPath = /Users/alinamarsfelder/Abzu-Kernels/kernel;
         };
 
         openbsd-userland = pkgs.callPackage ./derivations/openbsd-userland.nix {
@@ -112,8 +102,6 @@
 
         packages-shelf = ../packages;
 
-        # Base rootfs (uses source kernel by default)
-        # Directly invoke rootfs.nix bypassing callPackage auto-injection.
         rootfs-intel = 
           let rootfsFn = import ./derivations/rootfs.nix;
           in rootfsFn {
@@ -139,17 +127,14 @@
           rootfs = rootfs-intel;
           refind = pkgs.callPackage ./derivations/refind.nix { };
           volumeLabel = "ABZU_ROOTFS";
-          # Explicitly null out Linux-only tools to prevent callPackage from injecting them on Darwin
-          mtools = null; dosfstools = null; libisoburn = null; hfsutils = null; hfsprogs = null;
+          # ONLY nullify the strictly Linux-only tool. Keep mtools and dosfstools!
+          hfsprogs = null;
         };
 
         xnu-kernel-release = xnu-kernel;
         gui-theme = gui-core.passthru.themeBundle or gui-core;
       };
 
-      # ---- CRITICAL SCOPING & CROSS-COMPILATION FIX -------------------------
-      # Directly invoke rootfs.nix bypassing callPackage auto-injection, with
-      # the *host* package set (pkgsFor.native) for python3/runCommand/etc.
       mkCrossIntelRootfs = pkgsFor:
         let mCross = mkPkg pkgsFor.crossIntel pkgsFor.native;
             rootfsFn = import ./derivations/rootfs.nix;
@@ -157,8 +142,8 @@
           lib = pkgsFor.native.lib;
           stdenvNoCC = pkgsFor.native.stdenvNoCC;
           runCommand = pkgsFor.native.runCommand;
-          python3 = pkgsFor.native.python3; # <--- ABSOLUTELY GUARANTEED NATIVE PYTHON
-          kernel = mCross.xnu-kernel-precompiled; # <--- THE BYPASS: Use pre-compiled kernel
+          python3 = pkgsFor.native.python3;
+          kernel = mCross.xnu-kernel-precompiled;
           userland = mCross.openbsd-userland;
           gui = mCross.gui-core;
           packages = mCross.abzu-packages;
@@ -186,18 +171,15 @@
           gui-theme = m.gui-theme;
           default = m.iso-intel;
 
-          # Cross-compiled Intel artifacts for this host system.
           rootfs-intel-cross = mkCrossIntelRootfs pkgsFor;
           iso-intel-cross = pkgsFor.native.callPackage ./derivations/iso.nix {
             rootfs = mkCrossIntelRootfs pkgsFor;
             refind = pkgsFor.native.callPackage ./derivations/refind.nix { };
             volumeLabel = "ABZU_ROOTFS";
-            # Explicitly null out Linux-only tools
-            mtools = null; dosfstools = null; libisoburn = null; hfsutils = null; hfsprogs = null;
+            hfsprogs = null;
           };
         }) // {
         
-        # ---- aarch64-darwin (Apple Silicon M4) host builds for multiple targets ----
         aarch64-darwin =
           let
             pkgsFor = mkPkgsFor "aarch64-darwin";
@@ -205,24 +187,20 @@
             mNative = mkPkg pkgsNative pkgsNative;
             mCrossIntel = mkPkg pkgsFor.crossIntel pkgsNative;
             
-            # The ISO builder runs natively on aarch64-darwin, consuming the cross-compiled rootfs.
             abzu-iso-intel = pkgsNative.callPackage ./derivations/iso.nix {
               rootfs = mkCrossIntelRootfs pkgsFor;
               refind = pkgsNative.callPackage ./derivations/refind.nix { };
               volumeLabel = "ABZU_ROOTFS";
-              # Explicitly null out Linux-only tools
-              mtools = null; dosfstools = null; libisoburn = null; hfsutils = null; hfsprogs = null;
+              hfsprogs = null;
             };
           in
           mNative // {
-            # Intel (x86_64-darwin) Cross-Compiled Artifacts
             xnu-kernel-intel = mCrossIntel.xnu-kernel;
             xnu-kernel-intel-precompiled = mCrossIntel.xnu-kernel-precompiled;
             rootfs-intel = mkCrossIntelRootfs pkgsFor;
             iso-intel = abzu-iso-intel;
             default = abzu-iso-intel;
             
-            # Multi-Architecture Stubs (Future expansion)
             xnu-kernel-arm64 = mCrossIntel.xnu-kernel; 
             rootfs-arm64 = mkCrossIntelRootfs pkgsFor;         
             
@@ -239,16 +217,13 @@
             rootfs-sparc64 = mkCrossIntelRootfs pkgsFor;
           };
         
-        # ---- EXPOSED AT ROOT FOR EASY ACCESS --------------------------------
-        # Allows you to simply run `nix build .#iso-intel` from the M4.
         iso-intel =
           let pkgsFor = mkPkgsFor "aarch64-darwin";
           in pkgsFor.native.callPackage ./derivations/iso.nix {
             rootfs = mkCrossIntelRootfs pkgsFor;
             refind = pkgsFor.native.callPackage ./derivations/refind.nix { };
             volumeLabel = "ABZU_ROOTFS";
-            # Explicitly null out Linux-only tools
-            mtools = null; dosfstools = null; libisoburn = null; hfsutils = null; hfsprogs = null;
+            hfsprogs = null;
           };
       };
 
