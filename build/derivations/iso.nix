@@ -61,8 +61,7 @@ stdenvNoCC.mkDerivation rec {
 
     dd if=/dev/zero of=work/efiboot.img bs=1 count=4 status=none
     
-    # FIX: xorriso expects boot images to be present in the ISO tree.
-    # Copy them into the iso_root before invoking xorriso.
+    # xorriso expects boot images to be present in the ISO tree.
     cp work/efiboot.img work/iso_root/efiboot.img
     cp work/esp.img work/iso_root/esp.img
 
@@ -73,7 +72,6 @@ stdenvNoCC.mkDerivation rec {
       ${if isolinux != null then "-isohybrid-mbr $ISOHDPFX" else ""} \
       -c boot.catalog \
       -b efiboot.img -no-emul-boot -boot-load-size 4 -boot-info-table \
-      --efi-boot ESP \
       -e esp.img -no-emul-boot \
       -isohybrid-gpt-basdat \
       -o abzu-intel-installer.iso \
