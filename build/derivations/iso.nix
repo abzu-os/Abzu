@@ -1,7 +1,5 @@
 # build/derivations/iso.nix
-# Generates a hybrid El Torito bootable ISO for Intel Macs (x86_64).
-# Built natively on the host (e.g., aarch64-darwin), packages x86_64-darwin binaries.
-{ lib, stdenvNoCC, runCommand, rootfs, refind, xorriso,
+{ lib, stdenvNoCC, runCommand, rootfs, refind, xorriso, abzu-init, xnu,
   mtools ? null, dosfstools ? null, libisoburn ? null,
   isolinux ? null,          
   hfsutils ? null,          
@@ -10,7 +8,7 @@
 
 stdenvNoCC.mkDerivation rec {
   pname = "abzu-iso-intel";
-  version = "0.1.0";
+  version = "0.2.0"; # Phase 2
 
   nativeBuildInputs = [ xorriso ]
     ++ builtins.filter (x: x != null) [ mtools dosfstools libisoburn hfsutils hfsprogs ];
@@ -24,10 +22,19 @@ stdenvNoCC.mkDerivation rec {
     top="$PWD"
     mkdir -p work/iso_root work/esp/EFI/BOOT work/esp/EFI/refind
 
-    # ---- 1. Stage the Darwin rootfs --------------------------------------
-    echo "==> Staging rootfs..."
+    # ---- 1. Stage the Darwin rootfs & Abzu Components --------------------
+    echo "==> Staging rootfs and Abzu components..."
     cp -r --no-preserve=ownership,mode ${rootfs}/. work/iso_root/
     chmod -R u+w work/iso_root
+
+    # LEOPARD ARCHITECTURE FIX:
+    # 1. The kernel MUST be at the root of the drive as 'mach_kernel'
+    cp ${xnu}/mach_kernel work/iso_root/mach_kernel
+    
+    # 2. Our custom init MUST be at /sbin/abzu
+    mkdir -p work/iso_root/sbin
+    cp ${abzu-init}/sbin/abzu work/iso_root/sbin/abzu
+    chmod +x work/iso_root/sbin/abzu
 
     tar --format=ustar --numeric-owner --owner=0 --group=0 \
         --mtime="@${builtins.toString 315532800}" \
@@ -37,6 +44,8 @@ stdenvNoCC.mkDerivation rec {
     echo "==> Building ESP image..."
     cp -r --no-preserve=ownership ${refind}/EFI/BOOT/.  work/esp/EFI/BOOT/
     cp -r --no-preserve=ownership ${refind}/EFI/refind/. work/esp/EFI/refind/
+    
+    # Copy boot.efi from the rootfs if it exists (for rEFInd chaining)
     if [ -f work/iso_root/System/Library/CoreServices/boot.efi ]; then
       mkdir -p work/esp/System/Library/CoreServices
       cp work/iso_root/System/Library/CoreServices/boot.efi \
@@ -49,7 +58,6 @@ stdenvNoCC.mkDerivation rec {
       mcopy -s -i work/esp.img work/esp/EFI ::/EFI
       if [ -d work/esp/System ]; then mcopy -s -i work/esp.img work/esp/System ::/System; fi
       mmd -i work/esp.img ::/SystemLibrary 2>/dev/null || true
-      mdir -i work/esp.img ::/
     '' else ''
       echo "ERROR: mtools + dosfstools are required to build the ESP image." >&2
       exit 1
@@ -59,10 +67,13 @@ stdenvNoCC.mkDerivation rec {
     echo "==> Writing hybrid ISO..."
     ISOHDPFX="${if isolinux != null then "${isolinux}/isohdpfx.bin" else ""}"
 
+    # 1-sector dummy BIOS boot image to satisfy libisofs
     dd if=/dev/zero of=work/efiboot.img bs=2048 count=1 status=none
     
     cp work/efiboot.img work/iso_root/efiboot.img
     cp work/esp.img work/iso_root/esp.img
+    
+    # Copy the EFI directory to the ISO root for maximum Apple firmware compatibility
     cp -r work/esp/EFI work/iso_root/EFI
 
     xorriso -as mkisofs \
@@ -77,20 +88,19 @@ stdenvNoCC.mkDerivation rec {
       -o abzu-intel-installer.iso \
       work/iso_root work/ABZU_ROOTFS.tar
 
-    # FIX: Use the correct xorriso flag (-indev) to read the ISO for verification.
-    # Simplified grep to just look for the ESP image name in the catalog output.
+    # Verify the El Torito catalog
     xorriso -indev abzu-intel-installer.iso -report_el_torito as_mkisofs > eltorito.txt
     grep -q "esp.img" eltorito.txt || { echo "FATAL: no El Torito EFI entry"; exit 1; }
 
     mkdir -p "$out"
     cp abzu-intel-installer.iso "$out/abzu-intel-installer.iso"
     sha256sum "$out/abzu-intel-installer.iso" > "$out/abzu-intel-installer.iso.sha256"
-    echo "==> ISO created at: $out/abzu-intel-installer.iso"
+    echo "==> Phase 2 ISO created at: $out/abzu-intel-installer.iso"
     runHook postBuild
   '';
 
   meta = with lib; {
-    description = "Bootable hybrid El Torito ISO for Abzu Darwin (Intel x86_64)";
+    description = "Bootable hybrid El Torito ISO for Abzu Darwin (Leopard Architecture)";
     platforms = platforms.linux ++ platforms.darwin;
   };
 }
