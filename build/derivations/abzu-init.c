@@ -1,6 +1,6 @@
 // build/derivations/abzu-init.c
-// A minimal, statically-linked init program for Abzu OS.
-// Uses raw x86_64 Darwin syscalls to avoid any dependency on libSystem.B.dylib.
+// A minimal, statically-linked init program for Abzu OS (x86_64).
+// Uses raw Darwin syscalls to avoid any dependency on libSystem.B.dylib.
 
 void _start() {
     const char msg[] = "\n*** ABZU INIT SUCCESSFULLY EXECUTED ***\n";
