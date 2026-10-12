@@ -11,12 +11,12 @@ stdenv.mkDerivation {
 
   buildPhase = ''
     # Compile a statically linked Mach-O binary for x86_64
-    clang -target x86_64-apple-darwin -static -O2 -o abzu_init $src
+    clang -target x86_64-apple-darwin -static -O2 -o abzu $src
   '';
 
   installPhase = ''
     mkdir -p $out/sbin
-    cp abzu_init $out/sbin/abzu
+    cp abzu $out/sbin/abzu
     chmod +x $out/sbin/abzu
   '';
 }
