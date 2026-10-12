@@ -16,7 +16,7 @@
       # 2. The XNU Kernel (Patched to look for /sbin/abzu instead of launchd)
       # We pass the pre-compiled kernel file
       xnu = pkgs.callPackage ./build/derivations/xnu.nix {
-        kernelFile = ./build/distfiles/kernel;
+        kernelFile = /Users/alinamarsfelder/Abzu-kernels/Leopard/mach_kernel;
       };
 
       # 3. The ISO generator (Leopard Architecture)
