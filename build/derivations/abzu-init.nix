@@ -11,7 +11,10 @@ stdenv.mkDerivation {
 
   buildPhase = ''
     # Compile a statically linked Mach-O binary for x86_64
-    clang -target x86_64-apple-darwin -static -O2 -o abzu $src
+    # -nostdlib: Do not link against libSystem.dylib
+    # -static: Ensure no dynamic linking
+    # -e _start: Tell the linker our entry point is _start, not main
+    clang -target x86_64-apple-darwin -nostdlib -static -e _start -O2 -o abzu $src
   '';
 
   installPhase = ''
