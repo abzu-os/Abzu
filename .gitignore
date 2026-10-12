@@ -2,9 +2,9 @@
 result
 result-*
 
-# Ignore local macOS kernel binaries if you ever place them inside the repo
-# (Though keeping it outside the repo entirely is the safest legal practice)
+# Ignore local, restricted Apple binaries
 kernel
+build/distfiles/
 *.dmg
 *.iso
 .DS_Store
