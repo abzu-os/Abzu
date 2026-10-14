@@ -10,11 +10,13 @@ stdenv.mkDerivation {
   nativeBuildInputs = [ clang ];
 
   buildPhase = ''
-    # Compile a statically linked Mach-O binary for x86_64
-    # -nostdlib: Do not link against libSystem.dylib
-    # -static: Ensure no dynamic linking
-    # -e _start: Tell the linker our entry point is _start, not main
-    clang -target x86_64-apple-darwin -nostdlib -static -e _start -O2 -o abzu $src
+    # Compile a Universal Binary (fat binary) for Intel architectures.
+    # We omit 'ppc' here because Apple's native clang no longer supports it.
+    # The kernel's exec() will automatically select the matching slice at runtime.
+    
+    clang -arch i386 -arch x86_64 \
+      -nostdlib -static -e _start -O2 \
+      -o abzu $src
   '';
 
   installPhase = ''
