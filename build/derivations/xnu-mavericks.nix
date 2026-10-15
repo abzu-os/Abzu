@@ -97,10 +97,8 @@ in stdenv.mkDerivation rec {
     echo "==> Attempting XNU kernel compilation (Phase 3.2)..."
     make clean || true
     
-    # Attempt to build the actual kernel. We disable LTO as modern clang 
-    # often struggles with old XNU code when LTO is enabled.
-    make ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE BUILD_LTO=0 \
-      || echo "==> Compilation step finished (check output above for specific errors)"
+    # REMOVED the `|| echo` fallback. We NEED Nix to fail and show us the exact compiler error.
+    make ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE BUILD_LTO=0
   '';
 
   installPhase = ''
