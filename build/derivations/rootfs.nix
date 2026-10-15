@@ -18,7 +18,7 @@ runCommand "abzu-rootfs-intel" {
   # read-only directories. We use a loop to copy and force writable permissions.
   # We also strip GNU-specific `--no-preserve` flags to ensure cross-platform compatibility.
   for src in ${kernel} ${userland} ${gui} ${packages} ${cuneiform-input}; do
-    cp -r "$src"/. $out/
+    cp -R "$src"/. $out/
     chmod -R u+w $out
   done
 
@@ -83,16 +83,33 @@ PLIST
   fi
 
   # ---- Phase 5 configs -----------------------------------------------------
+  # AUDIT FIX (2026-10-15, B12): Phase 5 defaults are an overlay, not a hard
+  # dependency. The previous unconditional `cp` of quiver-defaults.json aborted
+  # the entire rootfs build when the shelf did not produce that path (see
+  # packages.nix header). Each copy is now guarded; missing overlays produce a
+  # WARN and the build continues.
   echo "==> Staging Phase 5 use-case optimizations..."
   mkdir -p $out/etc/skel/.config
-  cp -r ${phase5-configs}/etc-skel/.config/. $out/etc/skel/.config/
-  
-  mkdir -p $out/Library/Application\ Support/Stellarium
-  cp ${phase5-configs}/stellarium-defaults/config.ini \
-     $out/Library/Application\ Support/Stellarium/
-  
+  if [ -d ${phase5-configs}/etc-skel/.config ]; then
+    cp -R ${phase5-configs}/etc-skel/.config/. $out/etc/skel/.config/
+  else
+    echo "WARN: phase5 etc-skel payload absent" >&2
+  fi
+
+  mkdir -p "$out/Library/Application Support/Stellarium"
+  if [ -f ${phase5-configs}/stellarium-defaults/config.ini ]; then
+    cp ${phase5-configs}/stellarium-defaults/config.ini \
+       "$out/Library/Application Support/Stellarium/"
+  else
+    echo "WARN: Stellarium defaults absent" >&2
+  fi
+
   mkdir -p $out/usr/share/abzu/defaults
-  cp ${packages-shelf}/gaming/quiver-defaults.json $out/usr/share/abzu/defaults/
+  if [ -f ${packages-shelf}/gaming/quiver-defaults.json ]; then
+    cp ${packages-shelf}/gaming/quiver-defaults.json $out/usr/share/abzu/defaults/
+  else
+    echo "WARN: quiver-defaults.json absent from packages-shelf — Phase 5 overlay incomplete" >&2
+  fi
 
   # ---- final permissions ---------------------------------------------------
   # AUDIT FIX (2026-10-15, B3): the blanket 644 sweep clobbered the exec bits
