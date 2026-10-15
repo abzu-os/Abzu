@@ -13,25 +13,36 @@ in stdenv.mkDerivation rec {
 
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${xnu-version}.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000";
+    # LIVE-VERIFIED xnu-tahoe.nix pin fetches OK (raw tarball sha256=3bd76675b985fcfecf1e6cb71050559ec88497e59f9cedf00d42dcf489b44374).
+    # NOTE: this is the FILE hash. fetchzip needs the RECURSIVE nix hash of the
+    # unpacked tree — generate on a Nix host with:
+    #   nix-prefetch-url --unpack https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-11215.1.10.tar.gz
+    # then paste the resulting 'sha256-...' below replacing the AAAA placeholder.
+    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     stripRoot = true;
   };
 
   libc-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-${libc-version}.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000";
+    # DEAD PIN (verified 404 against GitHub API on 2026-10-15): tag does not exist
+    # in apple-oss-distributions. Correct the tag above before hashing.
+    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     stripRoot = true;
   };
 
   avail-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/AvailabilityVersions/archive/refs/tags/AvailabilityVersions-${avail-version}.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000";
+    # DEAD PIN (verified 404 against GitHub API on 2026-10-15): tag does not exist
+    # in apple-oss-distributions. Correct the tag above before hashing.
+    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     stripRoot = true;
   };
 
   bootstrap-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/bootstrap_cmds/archive/refs/tags/bootstrap_cmds-${bootstrap-version}.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000";
+    # DEAD PIN (verified 404 against GitHub API on 2026-10-15): tag does not exist
+    # in apple-oss-distributions. Correct the tag above before hashing.
+    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     stripRoot = true;
   };
 

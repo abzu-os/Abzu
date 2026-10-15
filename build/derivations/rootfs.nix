@@ -95,8 +95,13 @@ PLIST
   cp ${packages-shelf}/gaming/quiver-defaults.json $out/usr/share/abzu/defaults/
 
   # ---- final permissions ---------------------------------------------------
-  # The final sweep normalizes all directories to 755 and files to 644
+  # AUDIT FIX (2026-10-15, B3): the blanket 644 sweep clobbered the exec bits
+  # of every binary outside /bin (/sbin, /usr/sbin, /usr/bin — i.e. abzu-init,
+  # launchd jobs, doas), producing an unbootable tree even when the ISO built.
+  # Re-apply 755 to all standard bin dirs after the normalization.
   find $out -type d -exec chmod 755 {} \;
   find $out -type f -exec chmod 644 {} \;
-  find $out/bin -type f -exec chmod 755 {} \;
+  for d in bin sbin usr/bin usr/sbin usr/local/bin; do
+    [ -d "$out/$d" ] && find $out/$d -type f -exec chmod 755 {} \; || true
+  done
 ''

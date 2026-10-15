@@ -16,19 +16,28 @@ in stdenv.mkDerivation rec {
 
   libc-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-997.90.3.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000";
+    # LIVE-VERIFIED xnu-mavericks.nix pin fetches OK (raw tarball sha256=e47c15d4e03abc61218fe6bf107efad8e71c435e4a9c88b115a4f5cf45046cd5).
+    # NOTE: this is the FILE hash. fetchzip needs the RECURSIVE nix hash of the
+    # unpacked tree — generate on a Nix host with:
+    #   nix-prefetch-url --unpack https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-997.90.3.tar.gz
+    # then paste the resulting 'sha256-...' below replacing the AAAA placeholder.
+    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     stripRoot = true;
   };
 
   avail-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/AvailabilityVersions/archive/refs/tags/AvailabilityVersions-22.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000";
+    # DEAD PIN (verified 404 against GitHub API on 2026-10-15): tag does not exist
+    # in apple-oss-distributions. Correct the tag above before hashing.
+    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     stripRoot = true;
   };
 
   bootstrap-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/bootstrap_cmds/archive/refs/tags/bootstrap_cmds-87.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000";
+    # DEAD PIN (verified 404 against GitHub API on 2026-10-15): tag does not exist
+    # in apple-oss-distributions. Correct the tag above before hashing.
+    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     stripRoot = true;
   };
 
