@@ -6,24 +6,33 @@
   };
 
   outputs = { self, nixpkgs }: let
-    # We use the NATIVE toolchain for Apple Silicon (aarch64-darwin).
-    # This ensures ZERO Rosetta usage. The tools run natively.
+    # Native M4 toolchain (Zero Rosetta)
     system = "aarch64-darwin";
     pkgs = import nixpkgs { inherit system; };
   in {
     packages.${system} = {
-      # 1. Our custom init. We tell the NATIVE clang to output x86_64 code.
-      # Apple's clang has the x86_64 backend built-in. No Rosetta needed to compile.
+      # 1. Our custom init (Universal Binary: i386 + x86_64)
       abzu-init = pkgs.callPackage ./derivations/abzu-init.nix {};
 
-      # 2. The XNU Kernel. Native perl patches the file. No execution, just byte replacement.
+      # 2. The XNU Kernel (Leopard 10.5.8)
       xnu = pkgs.callPackage ./derivations/xnu.nix {
         kernelFile = /Users/alinamarsfelder/Abzu-kernels/Leopard/mach_kernel;
       };
 
-      # 3. The ISO generator. Native xorriso packs the files.
+      # 3. MINIMAL ROOTFS FOR PHASE 2 TEST
+      # This provides a bare skeleton to satisfy iso.nix without pulling in 
+      # the massive Phase 5 dependencies (openbsd-userland, gui, etc.).
+      # Once Phase 2 is proven, we will swap this out for rootfs-slim.nix!
+      rootfs = pkgs.runCommand "abzu-minimal-rootfs" {} ''
+        mkdir -p $out/{System/Library/Kernels,Library/Preferences,etc,var/tmp}
+        echo "Phase 2 Minimal Test Skeleton" > $out/.abzu-image-kind
+      '';
+
+      # 4. The ISO generator
       iso-intel = pkgs.callPackage ./derivations/iso.nix {
-        inherit (self.packages.${system}) abzu-init xnu;
+        inherit (self.packages.${system}) abzu-init xnu rootfs;
+        # Provide rEFInd from nixpkgs
+        refind = pkgs.refind; 
       };
     };
 
