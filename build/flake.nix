@@ -30,13 +30,23 @@
       #   error: function 'anonymous lambda' called with unexpected argument 'repoRoot'
       #         at .../rootfs.nix:3:1
       # The binding and all four `inherit repoRoot;` sites are now removed.
+      #
+      # AUDIT FIX (2026-10-15, B12): `manifests` is now an attrset keyed by
+      # logical source name so packages.nix can stage them as shelf-<name>.json
+      # (the old list form lost source identity through Nix path interpolation
+      # — see packages.nix header). `quiverDefaults` is forwarded when the
+      # source file exists and null otherwise; packages.nix handles both.
       # ------------------------------------------------------------------
 
-      manifests = [
-        ../packages/homelab/manifest.json
-        ../packages/gaming/manifest.json
-        ../packages/history-archives/manifest.json
-      ];
+      manifests = {
+        homelab          = ../packages/homelab/manifest.json;
+        gaming           = ../packages/gaming/manifest.json;
+        history-archives = ../packages/history-archives/manifest.json;
+      };
+      quiverDefaults =
+        if builtins.pathExists ../packages/gaming/quiver-defaults.json
+        then ../packages/gaming/quiver-defaults.json
+        else null;
 
       # rEFInd prebuilt EFI binaries (BOOTX64.EFI/BOOTIA32.EFI). This is the
       # real El Torito boot payload for the ISO — fixes B4/A1: previously no
@@ -62,7 +72,7 @@
             shellMenu = ../gui/AbzuShell/shell-menu.json;
           };
           packages-shelf = pkgs.callPackage ./derivations/packages.nix {
-            inherit manifests;
+            inherit manifests quiverDefaults;
           };
         in stubs // {
           inherit openbsd-userland cuneiform-input gui-core packages-shelf;
