@@ -1,13 +1,13 @@
 # build/derivations/xnu-mavericks.nix
 # Anchored to distribution-macOS tag: os-x-1095
 #
-# AUDIT FIX (2026-10-15, B9):
-#   - xnu  : tag xnu-2422.115.4 (correct; hash resolved to B18RNO+...)
-#   - Libc : pinned by COMMIT 423cd697a0961a8eb8eccb38a6d60bf6dfd4f50f,
-#            matching distribution-macOS/os-x-1095.
-#   - AvailabilityVersions: pinned by COMMIT
-#     9e102063d8143f0c20fc2f71ac30af2289751fc2 ("OS X 10.9").
-#   - bootstrap_cmds: NOT a submodule of os-x-1095. Removed.
+# AUDIT FIX (2026-10-15, B10): corrected a misattributed hash. The B18RNO+
+# value resolved in a previous round was the Libc tree hash, not the xnu tree
+# hash. The `-source.drv` in the `hash mismatch` error was a dependency of
+# xnu-mavericks, not xnu-src itself; the naming of the parent in the
+# subsequent `Cannot build` error caused it to be applied to the wrong pin.
+# B18RNO+ has been moved to libc-src; xnu-src is back to placeholder and will
+# resolve on the next build.
 { stdenv, fetchzip, fetchFromGitHub, cctools, patch }:
 
 let
@@ -18,8 +18,10 @@ in stdenv.mkDerivation rec {
 
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${version}.tar.gz";
-    # Resolved 2026-10-15 via deliberate fixed-output mismatch.
-    sha256 = "sha256-B18RNO+Rai5XE52TKdJV7eknosTZ+bRERkiU12d/kPU=";
+    # Placeholder — actual xnu tree hash is still unknown. Resolve via the
+    # `got:` line of the next hash mismatch (which will be for THIS derivation,
+    # not for libc-src).
+    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     stripRoot = true;
   };
 
@@ -27,15 +29,15 @@ in stdenv.mkDerivation rec {
     owner = "apple-oss-distributions";
     repo  = "Libc";
     rev   = "423cd697a0961a8eb8eccb38a6d60bf6dfd4f50f";
-    # Placeholder — resolve via the `got:` line on next build.
-    hash  = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    # Resolved 2026-10-15. This value was previously pasted into xnu-src.
+    hash  = "sha256-B18RNO+Rai5XE52TKdJV7eknosTZ+bRERkiU12d/kPU=";
   };
 
   avail-src = fetchFromGitHub {
     owner = "apple-oss-distributions";
     repo  = "AvailabilityVersions";
     rev   = "9e102063d8143f0c20fc2f71ac30af2289751fc2";
-    # Placeholder — resolve via the `got:` line on next build.
+    # Placeholder — will resolve after xnu-src and libc-src are settled.
     hash  = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 
