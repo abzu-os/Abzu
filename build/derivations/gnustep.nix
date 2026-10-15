@@ -24,7 +24,13 @@
 # eval-time platform instead, and never call build-gui.sh from within the
 # sandbox — native GNUstep binaries must be provided via the gnustep-core
 # argument or by running gui/build-gui.sh outside Nix (see build/Makefile).
-{ lib, stdenvNoCC, runCommand, src, themeDir, shellMenu, repoRoot ? null, gnustep-core ? null }:
+#
+# AUDIT FIX (2026-10-15, B5): removed the `repoRoot ? null` argument. After the
+# 2026-10-11 fix above dropped the in-sandbox script invocation, nothing in
+# this file referenced repoRoot; it survived only as a defaulted arg to absorb
+# the flake's blanket `inherit repoRoot;`, and it collided with rootfs.nix
+# which does not declare it. Flake call site cleaned up in the same commit.
+{ lib, stdenvNoCC, runCommand, src, themeDir, shellMenu, gnustep-core ? null }:
 
 runCommand "abzu-gui-core" {
   inherit themeDir shellMenu;
