@@ -1,32 +1,38 @@
 # build/derivations/xnu-mavericks.nix
 # Anchored to distribution-macOS tag: os-x-1095
-{ stdenv, fetchzip, cctools, bootstrap_cmds, patch }:
+{ stdenv, fetchzip, cctools, patch }:
 
 let
-  version = "2422.115.4"; # Final Mavericks 10.9.5 XNU version
+  version = "2422.115.4";
 in stdenv.mkDerivation rec {
   pname = "xnu-mavericks";
   inherit version;
 
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${version}.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    sha256 = "0000000000000000000000000000000000000000000000000000";
     stripRoot = true;
   };
 
   libc-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-997.90.3.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    sha256 = "0000000000000000000000000000000000000000000000000000";
     stripRoot = true;
   };
 
   avail-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/AvailabilityVersions/archive/refs/tags/AvailabilityVersions-22.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    sha256 = "0000000000000000000000000000000000000000000000000000";
     stripRoot = true;
   };
 
-  nativeBuildInputs = [ cctools bootstrap_cmds patch ];
+  bootstrap-src = fetchzip {
+    url = "https://github.com/apple-oss-distributions/bootstrap_cmds/archive/refs/tags/bootstrap_cmds-87.tar.gz";
+    sha256 = "0000000000000000000000000000000000000000000000000000";
+    stripRoot = true;
+  };
+
+  nativeBuildInputs = [ cctools patch ];
 
   buildPhase = ''
     echo "==> Assembling XNU Mavericks build tree (os-x-1095)..."
@@ -34,6 +40,7 @@ in stdenv.mkDerivation rec {
     cp -r ${xnu-src} build-tree/xnu
     cp -r ${libc-src} build-tree/Libc
     cp -r ${avail-src} build-tree/AvailabilityVersions
+    cp -r ${bootstrap-src} build-tree/bootstrap_cmds
     chmod -R u+w build-tree
     cd build-tree/xnu
 
