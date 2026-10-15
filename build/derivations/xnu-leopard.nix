@@ -1,6 +1,14 @@
 # build/derivations/xnu-leopard.nix
 # Anchored to distribution-macOS tag: mac-os-x-1058
-{ stdenv, fetchzip, cctools, patch }:
+#
+# AUDIT FIX (2026-10-15, B9):
+#   - xnu  : tag xnu-1228.15.4 (correct)
+#   - Libc : pinned by COMMIT 7198b93dbba0617e5927ff5a5e783f0e54ff957b,
+#            matching distribution-macOS/mac-os-x-1058. The previous tag
+#            (Libc-481.13.4) does not exist in apple-oss-distributions.
+#   - AvailabilityVersions: NOT a submodule of mac-os-x-1058. Removed.
+#   - bootstrap_cmds: NOT a submodule of mac-os-x-1058. Removed.
+{ stdenv, fetchzip, fetchFromGitHub, cctools, patch }:
 
 let
   version = "1228.15.4";
@@ -10,29 +18,18 @@ in stdenv.mkDerivation rec {
 
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${version}.tar.gz";
-    # LIVE-VERIFIED xnu-leopard.nix pin fetches OK (raw tarball sha256=f21216e4affba7be25037317531cde8cba827215028d07b4fdcd196cc157bc4d).
-    # NOTE: this is the FILE hash. fetchzip needs the RECURSIVE nix hash of the
-    # unpacked tree — generate on a Nix host with:
-    #   nix-prefetch-url --unpack https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-1228.15.4.tar.gz
-    # then paste the resulting 'sha256-...' below replacing the AAAA placeholder.
+    # Placeholder — resolve via the `got:` line of the fixed-output mismatch,
+    # or with `nix-prefetch-url --unpack`.
     sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     stripRoot = true;
   };
 
-  libc-src = fetchzip {
-    url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-481.13.4.tar.gz";
-    # DEAD PIN (verified 404 against GitHub API on 2026-10-15): tag does not exist
-    # in apple-oss-distributions. Correct the tag above before hashing.
-    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    stripRoot = true;
-  };
-
-  bootstrap-src = fetchzip {
-    url = "https://github.com/apple-oss-distributions/bootstrap_cmds/archive/refs/tags/bootstrap_cmds-71.tar.gz";
-    # DEAD PIN (verified 404 against GitHub API on 2026-10-15): tag does not exist
-    # in apple-oss-distributions. Correct the tag above before hashing.
-    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    stripRoot = true;
+  libc-src = fetchFromGitHub {
+    owner = "apple-oss-distributions";
+    repo  = "Libc";
+    rev   = "7198b93dbba0617e5927ff5a5e783f0e54ff957b";
+    # Placeholder — resolve via the `got:` line.
+    hash  = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 
   nativeBuildInputs = [ cctools patch ];
@@ -40,9 +37,8 @@ in stdenv.mkDerivation rec {
   buildPhase = ''
     echo "==> Assembling XNU Leopard build tree (mac-os-x-1058)..."
     mkdir -p build-tree
-    cp -r ${xnu-src} build-tree/xnu
+    cp -r ${xnu-src}  build-tree/xnu
     cp -r ${libc-src} build-tree/Libc
-    cp -r ${bootstrap-src} build-tree/bootstrap_cmds
     chmod -R u+w build-tree
     cd build-tree/xnu
 
