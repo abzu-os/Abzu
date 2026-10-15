@@ -1,63 +1,23 @@
 {
   "nodes": {
-    "darwin-nix": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1786845137,
-        "narHash": "sha256-oQFip+v0luP8NIxJzmiW4Wu8bILsbFWom5l0zonl8hQ=",
-        "owner": "nix-darwin",
-        "repo": "nix-darwin",
-        "rev": "4cff07de74b50e64bdd68cd4e722ab5b6b35ee48",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-darwin",
-        "ref": "master",
-        "repo": "nix-darwin",
-        "type": "github"
-      }
-    },
-    "gnustep-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1791652249,
-        "narHash": "sha256-SMHd24fhzwvOVfyWL4tSrU7sCcMO4tdJVLtAxEQ4bp8=",
-        "owner": "gnustep",
-        "repo": "libs-base",
-        "rev": "85d1ada78cb403dc16d2979671e54020ac6ab82f",
-        "type": "github"
-      },
-      "original": {
-        "owner": "gnustep",
-        "ref": "master",
-        "repo": "libs-base",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1735563628,
-        "narHash": "sha256-OnSAY7XDSx7CtDoqNh8jwVwh4xNL/2HaJxGjryLWzX8=",
+        "lastModified": 1791637130,
+        "narHash": "sha256-TuvwvSjJrpqyIYdjhQ7Wu+ADVfeOpO2Um21/V7TOubw=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "b134951a4c9f3c995fd7be05f3243f8ecd65d798",
+        "rev": "ca1659429c950a11a565b5764e37a1b704e17ec8",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-24.05",
+        "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
     },
     "root": {
       "inputs": {
-        "darwin-nix": "darwin-nix",
-        "gnustep-src": "gnustep-src",
         "nixpkgs": "nixpkgs"
       }
     }
