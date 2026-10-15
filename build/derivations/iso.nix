@@ -93,11 +93,16 @@ REFINDDONE
     # aarch64-darwin uses GNU dd from coreutils, which rejects the lowercase
     # `m` suffix (`1M` and `MiB` are accepted; `1m` is not). The redirect
     # `2>/dev/null` on the previous dd invocation hid the "invalid number"
-    # error and `set -e` aborted the entire ISO build with no log output —
-    # which is exactly the silent failure observed at
-    # "==> Writing ISO9660+Joliet ISO...". Use a bare byte count so the same
-    # command works on GNU dd, BSD dd, and busybox dd; drop the stderr
-    # redirect so future failures surface.
+    # error and `set -e` aborted the entire ISO build with no log output.
+    # Use a bare byte count so the same command works on GNU dd, BSD dd, and
+    # busybox dd; drop the stderr redirect so future failures surface.
+    #
+    # AUDIT FIX (2026-10-15, B15): `-hide-efi` and `-hidden-efi` are not
+    # valid xorriso/mkisofs options in any version. xorriso 1.5.8.pl02
+    # aborts with "FAILURE : -as mkisofs: Unrecognized option '-hide-efi'".
+    # The intended effect — marking the ESP image as the EFI El Torito boot
+    # entry — is already performed by `--efi-boot work/esp.img`. Both flags
+    # removed.
     ${lib.optionalString (efiPayload != null) ''
       dd if=/dev/zero of=work/esp.img bs=1048576 count=8
       mkfs.vfat -F 12 -n ABZU_EFI work/esp.img >/dev/null
@@ -111,10 +116,13 @@ REFINDDONE
     # EFI El Torito is already wired by `-e work/esp.img --efi-boot work/esp.img`
     # below; a true hybrid MBR would need `-isohybrid-mbr <path>` plus an MBR
     # blob, which is not staged here.
+    #
+    # AUDIT FIX (2026-10-15, B15): dropped `-hide-efi -hidden-efi` — see note
+    # above the ESP staging block.
     xorriso -as mkisofs \
       -r -J -joliet-long \
       -V "${volumeLabel}" \
-      ${lib.optionalString (efiPayload != null) "-e work/esp.img -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot work/esp.img -hide-efi -hidden-efi"} \
+      ${lib.optionalString (efiPayload != null) "-e work/esp.img -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot work/esp.img"} \
       -o abzu-intel-installer.iso \
       work/iso_root
 
