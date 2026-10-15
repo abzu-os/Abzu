@@ -1,16 +1,21 @@
 # build/derivations/xnu-mavericks.nix
 # Anchored to distribution-macOS tag: os-x-1095
 #
-# AUDIT FIX (2026-10-15, B10):
-#   - xnu  : tag xnu-2422.115.4. Tree hash resolved (KsCVPEkr...).
-#   - Libc : COMMIT 423cd697a0961a8eb8eccb38a6d60bf6dfd4f50f. Tree hash
-#            resolved (B18RNO+...).
-#   - AvailabilityVersions: COMMIT 9e102063d8143f0c20fc2f71ac30af2289751fc2
-#            ("OS X 10.9"). Tree hash resolved (REOzIHg7...).
-#   - bootstrap_cmds: NOT a submodule of os-x-1095. Removed.
+# AUDIT FIX (2026-10-15, B11):
+#   - All three fetchers are hash-pinned (see history below).
+#   - Added `dontUnpack = true`. The default unpackPhase of stdenv.mkDerivation
+#     expects $src or $srcs; this derivation instead binds the three fetched
+#     trees as `let` locals and copies them inside buildPhase. Without this
+#     flag, build fails at unpackPhase with:
+#       variable $src or $srcs should point to the source
+#     Nothing consumes $src in this file, so suppressing the default phase is
+#     the correct fix, not setting src = xnu-src.
 #
-# All three fetchers in this file are now hash-pinned. Any further failure
-# in this derivation will be in buildPhase, not the fetchers.
+# Hash resolution history:
+#   - xnu-src : tag xnu-2422.115.4       → KsCVPEkr...
+#   - libc-src: commit 423cd697... (Libc) → B18RNO+...
+#   - avail-src: commit 9e102063... (AvailabilityVersions) → REOzIHg7...
+#   - bootstrap_cmds: not a submodule of os-x-1095, removed.
 { stdenv, fetchzip, fetchFromGitHub, cctools, patch }:
 
 let
@@ -18,6 +23,10 @@ let
 in stdenv.mkDerivation rec {
   pname = "xnu-mavericks";
   inherit version;
+
+  # Skip stdenv's default unpackPhase. Sources are bound below as let-locals
+  # and copied explicitly in buildPhase; nothing here uses $src.
+  dontUnpack = true;
 
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${version}.tar.gz";
@@ -36,8 +45,6 @@ in stdenv.mkDerivation rec {
     owner = "apple-oss-distributions";
     repo  = "AvailabilityVersions";
     rev   = "9e102063d8143f0c20fc2f71ac30af2289751fc2";
-    # Resolved 2026-10-15. Confirmed via `nix derivation show` that the repo
-    # field matched AvailabilityVersions.
     hash  = "sha256-REOzIHg7DvZ30AH8XKLhTSQ4gC3bwoWJ1OlvSHFMRGs=";
   };
 
