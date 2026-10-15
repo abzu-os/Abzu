@@ -2,13 +2,11 @@
 # Anchored to distribution-macOS tag: os-x-1095
 #
 # AUDIT FIX (2026-10-15, B9):
-#   - xnu  : tag xnu-2422.115.4 (correct; hash already resolved)
+#   - xnu  : tag xnu-2422.115.4 (correct; hash resolved to B18RNO+...)
 #   - Libc : pinned by COMMIT 423cd697a0961a8eb8eccb38a6d60bf6dfd4f50f,
-#            matching distribution-macOS/os-x-1095. The previous tag
-#            (Libc-997.90.3) exists but the distribution pins a commit.
+#            matching distribution-macOS/os-x-1095.
 #   - AvailabilityVersions: pinned by COMMIT
 #     9e102063d8143f0c20fc2f71ac30af2289751fc2 ("OS X 10.9").
-#     The previous tag (AvailabilityVersions-22) is dead.
 #   - bootstrap_cmds: NOT a submodule of os-x-1095. Removed.
 { stdenv, fetchzip, fetchFromGitHub, cctools, patch }:
 
@@ -20,6 +18,7 @@ in stdenv.mkDerivation rec {
 
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${version}.tar.gz";
+    # Resolved 2026-10-15 via deliberate fixed-output mismatch.
     sha256 = "sha256-B18RNO+Rai5XE52TKdJV7eknosTZ+bRERkiU12d/kPU=";
     stripRoot = true;
   };
@@ -28,7 +27,7 @@ in stdenv.mkDerivation rec {
     owner = "apple-oss-distributions";
     repo  = "Libc";
     rev   = "423cd697a0961a8eb8eccb38a6d60bf6dfd4f50f";
-    # Placeholder — resolve via the `got:` line.
+    # Placeholder — resolve via the `got:` line on next build.
     hash  = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 
@@ -36,7 +35,7 @@ in stdenv.mkDerivation rec {
     owner = "apple-oss-distributions";
     repo  = "AvailabilityVersions";
     rev   = "9e102063d8143f0c20fc2f71ac30af2289751fc2";
-    # Placeholder — resolve via the `got:` line.
+    # Placeholder — resolve via the `got:` line on next build.
     hash  = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 
