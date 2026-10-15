@@ -39,7 +39,13 @@
 # multi-tool lines (mv/rm/scp/sshd/ntpd vanished from the stage). We now emit
 # a canonical one-tool-per-line TSV next to the human manifest and compute
 # toolCount from the parsed tool column — fail-closed if parsing yields zero.
-{ lib, stdenvNoCC, runCommand, srcInfo, manifest, skipList, compatSrc, etcOverlay, repoRoot ? null }:
+#
+# AUDIT FIX (2026-10-15, B5): removed the `repoRoot ? null` argument. After the
+# 2026-10-11 fix above dropped the in-sandbox script invocation, nothing in
+# this file referenced repoRoot; it survived only as a defaulted arg to absorb
+# the flake's blanket `inherit repoRoot;`, and it collided with rootfs.nix
+# which does not declare it. Flake call site cleaned up in the same commit.
+{ lib, stdenvNoCC, runCommand, srcInfo, manifest, skipList, compatSrc, etcOverlay }:
 
 runCommand "abzu-openbsd-userland-${srcInfo.openbsdSnap}" {
   inherit manifest skipList compatSrc etcOverlay;
