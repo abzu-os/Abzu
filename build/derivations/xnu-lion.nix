@@ -1,32 +1,38 @@
 # build/derivations/xnu-lion.nix
 # Anchored to distribution-macOS tag: mac-os-x-1075
-{ stdenv, fetchzip, cctools, bootstrap_cmds, patch }:
+{ stdenv, fetchzip, cctools, patch }:
 
 let
-  version = "1699.32.7"; # Final Lion 10.7.5 XNU version
+  version = "1699.32.7";
 in stdenv.mkDerivation rec {
   pname = "xnu-lion";
   inherit version;
 
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${version}.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    sha256 = "0000000000000000000000000000000000000000000000000000";
     stripRoot = true;
   };
 
   libc-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-763.13.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    sha256 = "0000000000000000000000000000000000000000000000000000";
     stripRoot = true;
   };
 
   avail-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/AvailabilityVersions/archive/refs/tags/AvailabilityVersions-13.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    sha256 = "0000000000000000000000000000000000000000000000000000";
     stripRoot = true;
   };
 
-  nativeBuildInputs = [ cctools bootstrap_cmds patch ];
+  bootstrap-src = fetchzip {
+    url = "https://github.com/apple-oss-distributions/bootstrap_cmds/archive/refs/tags/bootstrap_cmds-82.tar.gz";
+    sha256 = "0000000000000000000000000000000000000000000000000000";
+    stripRoot = true;
+  };
+
+  nativeBuildInputs = [ cctools patch ];
 
   buildPhase = ''
     echo "==> Assembling XNU Lion build tree (mac-os-x-1075)..."
@@ -34,6 +40,7 @@ in stdenv.mkDerivation rec {
     cp -r ${xnu-src} build-tree/xnu
     cp -r ${libc-src} build-tree/Libc
     cp -r ${avail-src} build-tree/AvailabilityVersions
+    cp -r ${bootstrap-src} build-tree/bootstrap_cmds
     chmod -R u+w build-tree
     cd build-tree/xnu
 
