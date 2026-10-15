@@ -8,7 +8,13 @@
   outputs = { self, nixpkgs }: let
     # Native M4 toolchain (Zero Rosetta)
     system = "aarch64-darwin";
-    pkgs = import nixpkgs { inherit system; };
+    
+    # We explicitly allow unsupported systems here because we are fetching 
+    # x86_64 bootloader files (rEFInd) to pack into an ISO, not to run on the M4.
+    pkgs = import nixpkgs { 
+      inherit system; 
+      config.allowUnsupportedSystem = true; 
+    };
   in {
     packages.${system} = {
       # 1. Our custom init (Universal Binary: i386 + x86_64)
@@ -21,8 +27,7 @@
 
       # 3. MINIMAL ROOTFS FOR PHASE 2 TEST
       # This provides a bare skeleton to satisfy iso.nix without pulling in 
-      # the massive Phase 5 dependencies (openbsd-userland, gui, etc.).
-      # Once Phase 2 is proven, we will swap this out for rootfs-slim.nix!
+      # the massive Phase 5 dependencies.
       rootfs = pkgs.runCommand "abzu-minimal-rootfs" {} ''
         mkdir -p $out/{System/Library/Kernels,Library/Preferences,etc,var/tmp}
         echo "Phase 2 Minimal Test Skeleton" > $out/.abzu-image-kind
@@ -31,7 +36,7 @@
       # 4. The ISO generator
       iso-intel = pkgs.callPackage ./derivations/iso.nix {
         inherit (self.packages.${system}) abzu-init xnu rootfs;
-        # Provide rEFInd from nixpkgs
+        # Provide rEFInd from nixpkgs (allowed via config above)
         refind = pkgs.refind; 
       };
     };
