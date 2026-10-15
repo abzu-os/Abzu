@@ -10,9 +10,8 @@ stdenv.mkDerivation {
   nativeBuildInputs = [ clang ];
 
   buildPhase = ''
-    # Compile a Universal Binary (fat binary) for Intel architectures.
-    # We omit 'ppc' here because Apple's native clang no longer supports it.
-    # The kernel's exec() will automatically select the matching slice at runtime.
+    # The NATIVE arm64 clang on your M4 Mac has the x86_64 backend built-in.
+    # It compiles x86_64 machine code natively without Rosetta.
     
     clang -arch i386 -arch x86_64 \
       -nostdlib -static -e _start -O2 \
