@@ -87,12 +87,19 @@ REFINDDONE
     # the tar into the tree so the installer finds it at /ABZU_ROOTFS.tar.
     mv work/ABZU_ROOTFS.tar work/iso_root/ABZU_ROOTFS.tar
     chmod 644 work/iso_root/ABZU_ROOTFS.tar
-    # El Torito EFI boot catalog + FAT-format ESP image when efiPayload present
+    # El Torito EFI boot catalog + FAT-format ESP image when efiPayload present.
+    #
+    # AUDIT FIX (2026-10-15, B14): `bs=1m` is not portable. The Nix sandbox on
+    # aarch64-darwin uses GNU dd from coreutils, which rejects the lowercase
+    # `m` suffix (`1M` and `MiB` are accepted; `1m` is not). The redirect
+    # `2>/dev/null` on the previous dd invocation hid the "invalid number"
+    # error and `set -e` aborted the entire ISO build with no log output —
+    # which is exactly the silent failure observed at
+    # "==> Writing ISO9660+Joliet ISO...". Use a bare byte count so the same
+    # command works on GNU dd, BSD dd, and busybox dd; drop the stderr
+    # redirect so future failures surface.
     ${lib.optionalString (efiPayload != null) ''
-      # small FAT image carrying the ESP tree for -e (EFI bootable)
-      # PORTABILITY (2026-10-15, B6): `dd status=none` is GNU-only; redirect
-      # stderr instead so the same line works with BSD dd.
-      dd if=/dev/zero of=work/esp.img bs=1m count=8 2>/dev/null
+      dd if=/dev/zero of=work/esp.img bs=1048576 count=8
       mkfs.vfat -F 12 -n ABZU_EFI work/esp.img >/dev/null
       mmd -i work/esp.img ::/EFI ::/EFI/BOOT ::/EFI/refind
       mcopy -i work/esp.img work/iso_root/EFI/BOOT/BOOTX64.EFI ::/EFI/BOOT/
