@@ -12,6 +12,11 @@
 # (meta.platforms = x86_64-darwin) and gui-core never creates
 # /usr/local/share/gnustep; every copy below is guarded so the slim variant
 # still produces an installer-skeleton tree instead of aborting under set -e.
+#
+# PORTABILITY (2026-10-15, B6): replaced GNU-only `cp -r --no-preserve=ownership`
+# with plain `cp -R`. Matches the fix already applied to rootfs.nix's own audit
+# note ("we strip GNU-specific `--no-preserve` flags to ensure cross-platform
+# compatibility") and keeps the two rootfs variants consistent.
 { lib, stdenvNoCC, runCommand, xnu-kernel, openbsd-userland, gui-core, cuneiform-input, packages-shelf, phase5-configs }:
 
 runCommand "abzu-rootfs" {
@@ -27,24 +32,24 @@ runCommand "abzu-rootfs" {
   # Kernel payload (System/Library/Kernels/kernel + bootstrap artifacts):
   # /System is not in pathsToLink, so copy explicitly when present.
   if [ -d ${xnu-kernel}/System ]; then
-    cp -r --no-preserve=ownership ${xnu-kernel}/System $out/
+    cp -R ${xnu-kernel}/System $out/
   else
     echo "WARN: kernel /System payload absent — installer-skeleton mode"
   fi
   mkdir -p $out/bootstrap
   if [ -d ${xnu-kernel}/bootstrap ]; then
-    cp -r --no-preserve=ownership ${xnu-kernel}/bootstrap/. $out/bootstrap/
+    cp -R ${xnu-kernel}/bootstrap/. $out/bootstrap/
   fi
 
   # GUI core: /Library themes + shell menu arrive via pathsToLink;
   # /Applications and /usr/local/share/gnustep need explicit copies.
   if [ -d ${gui-core}/Applications ]; then
-    cp -r --no-preserve=ownership ${gui-core}/Applications $out/
+    cp -R ${gui-core}/Applications $out/
   fi
   if [ -d ${gui-core}/usr/local/share/gnustep ]; then
     mkdir -p $out/usr/local/share
-    cp -r --no-preserve=ownership ${gui-core}/usr/local/share/gnustep \
-                                   $out/usr/local/share/gnustep
+    cp -R ${gui-core}/usr/local/share/gnustep \
+            $out/usr/local/share/gnustep
   else
     echo "WARN: gnustep share payload absent (Darwin builder required)"
   fi
@@ -83,8 +88,8 @@ PLIST
 
   # Copy user skeleton files (vdirsyncer, khal, apple2pi)
   mkdir -p $out/etc/skel/.config
-  cp -r --no-preserve=ownership ${phase5-configs}/etc-skel/.config/. \
-                                $out/etc/skel/.config/
+  cp -R ${phase5-configs}/etc-skel/.config/. \
+         $out/etc/skel/.config/
 
   # Copy Stellarium defaults to the Darwin application support location
   mkdir -p $out/Library/Application\ Support/Stellarium
