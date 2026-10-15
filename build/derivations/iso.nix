@@ -1,6 +1,13 @@
 # build/derivations/iso.nix
 { lib, stdenvNoCC, runCommand, rootfs, kernel, abzu-init, xorriso,
   mtools ? null, dosfstools ? null,
+  # AUDIT FIX (2026-10-15, B4): optional real Apple boot.efi payload
+  # (catalina-signed). Default null => no zero-byte boot.efi is staged; the
+  # tree carries an explicit .ABZU-NON-BOOTABLE marker unless efiPayload
+  # (rEFInd) makes the image EFI-bootable to the installer at least.
+  bootEfi ? null,
+  # Real EFI boot binaries tree (e.g. refind.nix output with /EFI/BOOT/BOOTX64.EFI).
+  efiPayload ? null,
   volumeLabel ? "ABZU_ROOTFS" }:
 
 stdenvNoCC.mkDerivation rec {
@@ -25,26 +32,72 @@ stdenvNoCC.mkDerivation rec {
 
     # 1. The kernel MUST be at the root of the drive as 'mach_kernel'
     cp ${kernel}/mach_kernel work/iso_root/mach_kernel
-    
+    chmod 644 work/iso_root/mach_kernel
+
     # 2. Our custom init MUST be at /sbin/abzu
     mkdir -p work/iso_root/sbin
     cp ${abzu-init}/sbin/abzu work/iso_root/sbin/abzu
     chmod +x work/iso_root/sbin/abzu
 
     # Create the bootable structure
+    # AUDIT FIX (2026-10-15, B4): `touch boot.efi` staged a ZERO-byte file
+    # that Intel Mac firmware happily selects and then hangs on. Only stage
+    # boot.efi when a real binary is supplied via the bootEfi argument;
+    # otherwise mark the image explicitly non-bootable inside the tree.
     mkdir -p work/iso_root/System/Library/CoreServices
-    touch work/iso_root/System/Library/CoreServices/boot.efi
+    ${lib.optionalString (bootEfi != null) ''
+      cp ${bootEfi} work/iso_root/System/Library/CoreServices/boot.efi
+      chmod 644 work/iso_root/System/Library/CoreServices/boot.efi
+    ''}${lib.optionalString (bootEfi == null) ''
+      echo "no Apple boot.efi supplied (bootEfi argument)" > work/iso_root/.ABZU-BOOT-PARTIAL
+    ''}
+    # AUDIT FIX (2026-10-15, B4/A1): stage the rEFInd ESP payload so the ISO
+    # actually boots (El Torito below). Without it the image is dry-run only.
+    ${lib.optionalString (efiPayload != null) ''
+      mkdir -p work/iso_root/EFI
+      cp -r ${efiPayload}/EFI/. work/iso_root/EFI/
+      chmod -R u+w work/iso_root/EFI
+      find work/iso_root/EFI -type f -name '*.EFI' -exec chmod 755 {} \;
+      cat > work/iso_root/EFI/refind/refind.conf <<'REFINDDONE'
+timeout 3
+defaultloader efi
+scan_all_windows false
+also_scan_from /System/Library/Kernels
+menu_title "Abzu Darwin"
+default_boot mach_kernel
+REFINDDONE
+    ''}${lib.optionalString (efiPayload == null) ''
+      echo "NON-BOOTABLE: no EFI payload supplied (pass efiPayload=refind or use build/scripts/make-iso.sh ESP recipe)" \
+        > work/iso_root/.ABZU-NON-BOOTABLE
+    ''}
 
     tar --format=ustar --numeric-owner --owner=0 --group=0 \
         --mtime="@${builtins.toString 315532800}" \
         -C work/iso_root -cf work/ABZU_ROOTFS.tar .
 
     echo "==> Writing ISO9660+Joliet ISO..."
-    xorriso -as mkisofs \
+    # AUDIT FIX (2026-10-15, B4): passing both work/iso_root AND the tar as
+    # two image args made xorriso embed ABZU_ROOTFS.tar as a stray duplicate
+    # file inside the very filesystem it also walked. Single tree only; move
+    # the tar into the tree so the installer finds it at /ABZU_ROOTFS.tar.
+    mv work/ABZU_ROOTFS.tar work/iso_root/ABZU_ROOTFS.tar
+    chmod 644 work/iso_root/ABZU_ROOTFS.tar
+    # El Torito EFI boot catalog + FAT-format ESP image when efiPayload present
+    ${lib.optionalString (efiPayload != null) ''
+      # small FAT image carrying the ESP tree for -e (EFI bootable)
+      dd if=/dev/zero of=work/esp.img bs=1M count=8 status=none
+      mkfs.vfat -F 12 -n ABZU_EFI work/esp.img >/dev/null
+      mmd -i work/esp.img ::/EFI ::/EFI/BOOT ::/EFI/refind
+      mcopy -i work/esp.img work/iso_root/EFI/BOOT/BOOTX64.EFI ::/EFI/BOOT/
+      [ -f work/iso_root/EFI/BOOT/BOOTIA32.EFI ] && mcopy -i work/esp.img work/iso_root/EFI/BOOT/BOOTIA32.EFI ::/EFI/BOOT/ || true
+      mcopy -i work/esp.img work/iso_root/EFI/refind/refind.conf ::/EFI/refind/
+      # keep the plain-tree copy too so HFS-style mounts see it
+    ''}xorriso -as mkisofs \
       -r -J -joliet-long \
       -V "${volumeLabel}" \
+      ${lib.optionalString (efiPayload != null) "-isomax bridge -e work/esp.img -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot work/esp.img -hide-efi -hidden-efi"} \
       -o abzu-intel-installer.iso \
-      work/iso_root work/ABZU_ROOTFS.tar
+      work/iso_root
 
     mkdir -p "$out"
     cp abzu-intel-installer.iso "$out/abzu-intel-installer.iso"

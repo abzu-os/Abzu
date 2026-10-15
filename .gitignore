@@ -1,10 +1,1 @@
-# Ignore Nix build symlinks
-result
-result-*
-
-# Ignore local, restricted Apple binaries
-kernel
-build/distfiles/
-*.dmg
-*.iso
-.DS_Store
+build/

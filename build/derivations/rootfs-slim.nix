@@ -103,9 +103,13 @@ PLIST
   fi
 
   # Set permissions
+  # AUDIT FIX (2026-10-15, B3): re-apply exec bits to ALL standard bin dirs —
+  # the blanket 644 sweep previously clobbered /sbin,/usr/bin,/usr/sbin too.
   find $out -type d -exec chmod 755 {} \;
   find $out -type f -exec chmod 644 {} \;
-  find $out/bin -type f -exec chmod 755 {} \;
+  for d in bin sbin usr/bin usr/sbin usr/local/bin; do
+    [ -d "$out/$d" ] && find $out/$d -type f -exec chmod 755 {} \; || true
+  done
   # re-apply sensitive bits clobbered by the blanket 644 sweep
   chmod 600 $out/etc/master.passwd 2>/dev/null || true
   chmod 1777 $out/var/tmp 2>/dev/null || true
