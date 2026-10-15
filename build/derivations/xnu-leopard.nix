@@ -1,33 +1,39 @@
 # build/derivations/xnu-leopard.nix
 # Anchored to distribution-macOS tag: mac-os-x-1058
-{ stdenv, fetchzip, cctools, bootstrap_cmds, patch }:
+{ stdenv, fetchzip, cctools, patch }:
 
 let
-  version = "1228.15.4"; # Final Leopard 10.5.8 XNU version
+  version = "1228.15.4";
 in stdenv.mkDerivation rec {
   pname = "xnu-leopard";
   inherit version;
 
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${version}.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    sha256 = "0000000000000000000000000000000000000000000000000000";
     stripRoot = true;
   };
 
   libc-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-481.13.4.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    sha256 = "0000000000000000000000000000000000000000000000000000";
     stripRoot = true;
   };
 
-  nativeBuildInputs = [ cctools bootstrap_cmds patch ];
+  bootstrap-src = fetchzip {
+    url = "https://github.com/apple-oss-distributions/bootstrap_cmds/archive/refs/tags/bootstrap_cmds-71.tar.gz";
+    sha256 = "0000000000000000000000000000000000000000000000000000";
+    stripRoot = true;
+  };
+
+  nativeBuildInputs = [ cctools patch ];
 
   buildPhase = ''
     echo "==> Assembling XNU Leopard build tree (mac-os-x-1058)..."
     mkdir -p build-tree
     cp -r ${xnu-src} build-tree/xnu
     cp -r ${libc-src} build-tree/Libc
-    # Note: AvailabilityVersions did not exist as a standalone OSS project in 10.5
+    cp -r ${bootstrap-src} build-tree/bootstrap_cmds
     chmod -R u+w build-tree
     cd build-tree/xnu
 
