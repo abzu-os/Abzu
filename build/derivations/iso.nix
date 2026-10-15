@@ -33,7 +33,7 @@ stdenvNoCC.mkDerivation rec {
     cp ${abzu-init}/sbin/abzu work/iso_root/sbin/abzu
     chmod +x work/iso_root/sbin/abzu
 
-    # Create the bootable HFS+ structure
+    # Create the bootable HFS+ structure (for manual USB flashing)
     mkdir -p work/iso_root/System/Library/CoreServices
     touch work/iso_root/System/Library/CoreServices/boot.efi
 
@@ -41,15 +41,15 @@ stdenvNoCC.mkDerivation rec {
         --mtime="@${builtins.toString 315532800}" \
         -C work/iso_root -cf work/ABZU_ROOTFS.tar .
 
-    # ---- 2. Build Hybrid ISO -------------------------------------------
-    echo "==> Writing hybrid ISO..."
+    # ---- 2. Build ISO (ISO9660+Joliet, not bootable) --------------------
+    echo "==> Writing ISO9660+Joliet ISO..."
     
-    # For Mac booting, we just need the HFS+ partition with boot.efi
-    # No ESP needed - Apple firmware boots directly from HFS+
+    # We create a plain ISO9660 image. The actual bootable volume will be
+    # the HFS+ USB drive that the user creates manually and copies files to.
+    # The ISO is just a container for the files in the right structure.
     
     xorriso -as mkisofs \
       -r -J -joliet-long \
-      -hfs \
       -V "${volumeLabel}" \
       -o abzu-intel-installer.iso \
       work/iso_root work/ABZU_ROOTFS.tar
@@ -62,6 +62,6 @@ stdenvNoCC.mkDerivation rec {
   '';
 
   meta = {
-    description = "Bootable hybrid ISO for Abzu Darwin (Leopard Architecture)";
+    description = "ISO9660 container for Abzu Darwin (Leopard Architecture)";
   };
 }
