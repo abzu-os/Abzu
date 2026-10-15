@@ -2,15 +2,15 @@
 # Anchored to distribution-macOS tag: os-x-1095
 #
 # AUDIT FIX (2026-10-15, B10):
-#   - xnu  : tag xnu-2422.115.4. Tree hash resolved to KsCVPEkr... via
-#            `nix derivation show` on the failing -source.drv; URLs field
-#            confirmed this was the fetchzip pin, not Libc or AvailabilityVersions.
-#   - Libc : pinned by COMMIT 423cd697a0961a8eb8eccb38a6d60bf6dfd4f50f,
-#            matching distribution-macOS/os-x-1095. Tree hash B18RNO+.
-#   - AvailabilityVersions: pinned by COMMIT
-#     9e102063d8143f0c20fc2f71ac30af2289751fc2 ("OS X 10.9").
-#     Hash still placeholder; will resolve on the next build.
+#   - xnu  : tag xnu-2422.115.4. Tree hash resolved (KsCVPEkr...).
+#   - Libc : COMMIT 423cd697a0961a8eb8eccb38a6d60bf6dfd4f50f. Tree hash
+#            resolved (B18RNO+...).
+#   - AvailabilityVersions: COMMIT 9e102063d8143f0c20fc2f71ac30af2289751fc2
+#            ("OS X 10.9"). Tree hash resolved (REOzIHg7...).
 #   - bootstrap_cmds: NOT a submodule of os-x-1095. Removed.
+#
+# All three fetchers in this file are now hash-pinned. Any further failure
+# in this derivation will be in buildPhase, not the fetchers.
 { stdenv, fetchzip, fetchFromGitHub, cctools, patch }:
 
 let
@@ -21,8 +21,6 @@ in stdenv.mkDerivation rec {
 
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${version}.tar.gz";
-    # Resolved 2026-10-15. Confirmed via `nix derivation show` that the URLs
-    # field matched this fetchzip pin.
     sha256 = "sha256-KsCVPEkrXyLM4Gdkeydh0RtycIp+3yXPB52jfAQgPSA=";
     stripRoot = true;
   };
@@ -31,7 +29,6 @@ in stdenv.mkDerivation rec {
     owner = "apple-oss-distributions";
     repo  = "Libc";
     rev   = "423cd697a0961a8eb8eccb38a6d60bf6dfd4f50f";
-    # Resolved 2026-10-15.
     hash  = "sha256-B18RNO+Rai5XE52TKdJV7eknosTZ+bRERkiU12d/kPU=";
   };
 
@@ -39,8 +36,9 @@ in stdenv.mkDerivation rec {
     owner = "apple-oss-distributions";
     repo  = "AvailabilityVersions";
     rev   = "9e102063d8143f0c20fc2f71ac30af2289751fc2";
-    # Placeholder — will resolve on the next build.
-    hash  = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    # Resolved 2026-10-15. Confirmed via `nix derivation show` that the repo
+    # field matched AvailabilityVersions.
+    hash  = "sha256-REOzIHg7DvZ30AH8XKLhTSQ4gC3bwoWJ1OlvSHFMRGs=";
   };
 
   nativeBuildInputs = [ cctools patch ];
