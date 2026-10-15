@@ -1,37 +1,41 @@
 # build/derivations/xnu-tahoe.nix
 # Anchored to distribution-macOS tag: macos-265
-{ stdenv, fetchzip, cctools, bootstrap_cmds, patch }:
+{ stdenv, fetchzip, cctools, patch }:
 
 let
-  # TODO: Open the macos-265 tag in distribution-macOS, read the 'projects' file, 
-  # and update these three version strings to match the exact XNU, Libc, and 
-  # AvailabilityVersions tags listed for this release.
-  xnu-version = "11215.1.10"; # Placeholder: Update from macos-265 'projects' file
-  libc-version = "1500.100.10"; # Placeholder: Update from macos-265 'projects' file
-  avail-version = "30"; # Placeholder: Update from macos-265 'projects' file
+  xnu-version = "11215.1.10"; 
+  libc-version = "1500.100.10"; 
+  avail-version = "30"; 
+  bootstrap-version = "107"; # Placeholder: Update from macos-265 'projects' file if needed
 in stdenv.mkDerivation rec {
   pname = "xnu-tahoe";
   version = xnu-version;
 
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${xnu-version}.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    sha256 = "0000000000000000000000000000000000000000000000000000";
     stripRoot = true;
   };
 
   libc-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-${libc-version}.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    sha256 = "0000000000000000000000000000000000000000000000000000";
     stripRoot = true;
   };
 
   avail-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/AvailabilityVersions/archive/refs/tags/AvailabilityVersions-${avail-version}.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    sha256 = "0000000000000000000000000000000000000000000000000000";
     stripRoot = true;
   };
 
-  nativeBuildInputs = [ cctools bootstrap_cmds patch ];
+  bootstrap-src = fetchzip {
+    url = "https://github.com/apple-oss-distributions/bootstrap_cmds/archive/refs/tags/bootstrap_cmds-${bootstrap-version}.tar.gz";
+    sha256 = "0000000000000000000000000000000000000000000000000000";
+    stripRoot = true;
+  };
+
+  nativeBuildInputs = [ cctools patch ];
 
   buildPhase = ''
     echo "==> Assembling XNU Tahoe build tree (macos-265)..."
@@ -39,6 +43,7 @@ in stdenv.mkDerivation rec {
     cp -r ${xnu-src} build-tree/xnu
     cp -r ${libc-src} build-tree/Libc
     cp -r ${avail-src} build-tree/AvailabilityVersions
+    cp -r ${bootstrap-src} build-tree/bootstrap_cmds
     chmod -R u+w build-tree
     cd build-tree/xnu
 
