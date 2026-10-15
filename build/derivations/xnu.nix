@@ -31,9 +31,3 @@ stdenv.mkDerivation {
     # Leopard architecture requires the kernel to be named 'mach_kernel'
     cp mach_kernel $out/mach_kernel
   '';
-
-  meta = with lib; {
-  description = "Patched XNU Kernel for Abzu";
-  platforms = platforms.darwin; # Allows both x86_64-darwin and aarch64-darwin
-};
-}
