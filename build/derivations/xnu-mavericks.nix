@@ -1,6 +1,6 @@
 # build/derivations/xnu-mavericks.nix
 # Anchored to distribution-macOS tag: os-x-1095
-{ stdenv, fetchzip, cctools, bootstrap_cmds, patch, perl, bison, flex, darwin }:
+{ stdenv, fetchzip, cctools, patch, perl, bison, flex, darwin }:
 
 let
   version = "2422.115.4";
@@ -28,6 +28,7 @@ in stdenv.mkDerivation rec {
     stripRoot = true;
   };
 
+  # Self-contained fetch, no longer relying on nixpkgs for bootstrap_cmds
   bootstrap-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/bootstrap_cmds/archive/refs/tags/bootstrap_cmds-87.tar.gz";
     # TODO: Replace with the real hash if you haven't already!
@@ -35,7 +36,7 @@ in stdenv.mkDerivation rec {
     stripRoot = true;
   };
 
-  nativeBuildInputs = [ cctools bootstrap_cmds patch perl bison flex ] 
+  nativeBuildInputs = [ cctools patch perl bison flex ] 
     ++ (with darwin.apple_sdk.frameworks; [ CoreFoundation IOKit SystemConfiguration ]);
 
   buildPhase = ''
