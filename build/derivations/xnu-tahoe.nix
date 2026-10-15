@@ -1,49 +1,49 @@
 # build/derivations/xnu-tahoe.nix
 # Anchored to distribution-macOS tag: macos-265
-{ stdenv, fetchzip, cctools, patch }:
+#
+# AUDIT FIX (2026-10-15, B9):
+#   - xnu  : tag xnu-11215.1.10 (correct)
+#   - Libc : pinned by COMMIT 4e34d0559e3a1b081afeb8604d9e204a1f31321d,
+#            matching distribution-macOS/macos-265. The previous tag
+#            (Libc-1500.100.10) does not exist in apple-oss-distributions.
+#   - AvailabilityVersions: pinned by COMMIT
+#     149b1777f3e8c2133042d8e188f72e3adf6a7110 (macOS 26.4).
+#   - bootstrap_cmds: pinned by COMMIT
+#     c71d2d72f48995baaea76148f61002e5299841de (macOS 26.0).
+{ stdenv, fetchzip, fetchFromGitHub, cctools, patch }:
 
 let
-  xnu-version = "11215.1.10"; 
-  libc-version = "1500.100.10"; 
-  avail-version = "30"; 
-  bootstrap-version = "107"; # Placeholder: Update from macos-265 'projects' file if needed
+  xnu-version = "11215.1.10";
 in stdenv.mkDerivation rec {
   pname = "xnu-tahoe";
   version = xnu-version;
 
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${xnu-version}.tar.gz";
-    # LIVE-VERIFIED xnu-tahoe.nix pin fetches OK (raw tarball sha256=3bd76675b985fcfecf1e6cb71050559ec88497e59f9cedf00d42dcf489b44374).
-    # NOTE: this is the FILE hash. fetchzip needs the RECURSIVE nix hash of the
-    # unpacked tree — generate on a Nix host with:
-    #   nix-prefetch-url --unpack https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-11215.1.10.tar.gz
-    # then paste the resulting 'sha256-...' below replacing the AAAA placeholder.
+    # Placeholder — resolve via the `got:` line.
     sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     stripRoot = true;
   };
 
-  libc-src = fetchzip {
-    url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-${libc-version}.tar.gz";
-    # DEAD PIN (verified 404 against GitHub API on 2026-10-15): tag does not exist
-    # in apple-oss-distributions. Correct the tag above before hashing.
-    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    stripRoot = true;
+  libc-src = fetchFromGitHub {
+    owner = "apple-oss-distributions";
+    repo  = "Libc";
+    rev   = "4e34d0559e3a1b081afeb8604d9e204a1f31321d";
+    hash  = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 
-  avail-src = fetchzip {
-    url = "https://github.com/apple-oss-distributions/AvailabilityVersions/archive/refs/tags/AvailabilityVersions-${avail-version}.tar.gz";
-    # DEAD PIN (verified 404 against GitHub API on 2026-10-15): tag does not exist
-    # in apple-oss-distributions. Correct the tag above before hashing.
-    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    stripRoot = true;
+  avail-src = fetchFromGitHub {
+    owner = "apple-oss-distributions";
+    repo  = "AvailabilityVersions";
+    rev   = "149b1777f3e8c2133042d8e188f72e3adf6a7110";
+    hash  = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 
-  bootstrap-src = fetchzip {
-    url = "https://github.com/apple-oss-distributions/bootstrap_cmds/archive/refs/tags/bootstrap_cmds-${bootstrap-version}.tar.gz";
-    # DEAD PIN (verified 404 against GitHub API on 2026-10-15): tag does not exist
-    # in apple-oss-distributions. Correct the tag above before hashing.
-    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    stripRoot = true;
+  bootstrap-src = fetchFromGitHub {
+    owner = "apple-oss-distributions";
+    repo  = "bootstrap_cmds";
+    rev   = "c71d2d72f48995baaea76148f61002e5299841de";
+    hash  = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 
   nativeBuildInputs = [ cctools patch ];
@@ -51,9 +51,9 @@ in stdenv.mkDerivation rec {
   buildPhase = ''
     echo "==> Assembling XNU Tahoe build tree (macos-265)..."
     mkdir -p build-tree
-    cp -r ${xnu-src} build-tree/xnu
-    cp -r ${libc-src} build-tree/Libc
-    cp -r ${avail-src} build-tree/AvailabilityVersions
+    cp -r ${xnu-src}       build-tree/xnu
+    cp -r ${libc-src}      build-tree/Libc
+    cp -r ${avail-src}     build-tree/AvailabilityVersions
     cp -r ${bootstrap-src} build-tree/bootstrap_cmds
     chmod -R u+w build-tree
     cd build-tree/xnu
