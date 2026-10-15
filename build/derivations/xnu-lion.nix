@@ -1,9 +1,9 @@
 # build/derivations/xnu-lion.nix
+# Anchored to distribution-macOS tag: mac-os-x-1075
 { stdenv, fetchzip, cctools, bootstrap_cmds, patch }:
 
 let
-  # UPDATE THIS STRING to the latest Lion-era tag, then run update-src-hashes.sh
-  version = "1699.32.7";
+  version = "1699.32.7"; # Final Lion 10.7.5 XNU version
 in stdenv.mkDerivation rec {
   pname = "xnu-lion";
   inherit version;
@@ -16,20 +16,20 @@ in stdenv.mkDerivation rec {
 
   libc-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-763.13.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000";
+    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
     stripRoot = true;
   };
 
   avail-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/AvailabilityVersions/archive/refs/tags/AvailabilityVersions-13.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000";
+    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
     stripRoot = true;
   };
 
   nativeBuildInputs = [ cctools bootstrap_cmds patch ];
 
   buildPhase = ''
-    echo "==> Assembling XNU Lion build tree..."
+    echo "==> Assembling XNU Lion build tree (mac-os-x-1075)..."
     mkdir -p build-tree
     cp -r ${xnu-src} build-tree/xnu
     cp -r ${libc-src} build-tree/Libc
