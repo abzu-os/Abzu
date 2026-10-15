@@ -26,8 +26,6 @@
       };
 
       # 3. MINIMAL ROOTFS FOR PHASE 2 TEST
-      # This provides a bare skeleton to satisfy iso.nix without pulling in 
-      # the massive Phase 5 dependencies.
       rootfs = pkgs.runCommand "abzu-minimal-rootfs" {} ''
         mkdir -p $out/{System/Library/Kernels,Library/Preferences,etc,var/tmp}
         echo "Phase 2 Minimal Test Skeleton" > $out/.abzu-image-kind
@@ -36,8 +34,17 @@
       # 4. The ISO generator
       iso-intel = pkgs.callPackage ./derivations/iso.nix {
         inherit (self.packages.${system}) abzu-init xnu rootfs;
+        
         # Provide rEFInd from nixpkgs (allowed via config above)
         refind = pkgs.refind; 
+        
+        # CRITICAL FIX: Explicitly pass null for Linux-only tools.
+        # This prevents callPackage from trying to evaluate pkgs.hfsutils 
+        # (which is Linux-only) and throwing an "unsupported system" error.
+        hfsutils = null;
+        hfsprogs = null;
+        libisoburn = null;
+        isolinux = null;
       };
     };
 
