@@ -1,9 +1,9 @@
 # build/derivations/xnu-leopard.nix
+# Anchored to distribution-macOS tag: mac-os-x-1058
 { stdenv, fetchzip, cctools, bootstrap_cmds, patch }:
 
 let
-  # UPDATE THIS STRING to the latest Leopard-era tag, then run update-src-hashes.sh
-  version = "1228.15.4"; 
+  version = "1228.15.4"; # Final Leopard 10.5.8 XNU version
 in stdenv.mkDerivation rec {
   pname = "xnu-leopard";
   inherit version;
@@ -14,20 +14,20 @@ in stdenv.mkDerivation rec {
     stripRoot = true;
   };
 
-  # Leopard-era companions (versions are approximate to the 10.5.x era)
   libc-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-481.13.4.tar.gz";
-    sha256 = "0000000000000000000000000000000000000000000000000000";
+    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
     stripRoot = true;
   };
 
   nativeBuildInputs = [ cctools bootstrap_cmds patch ];
 
   buildPhase = ''
-    echo "==> Assembling XNU Leopard build tree..."
+    echo "==> Assembling XNU Leopard build tree (mac-os-x-1058)..."
     mkdir -p build-tree
     cp -r ${xnu-src} build-tree/xnu
     cp -r ${libc-src} build-tree/Libc
+    # Note: AvailabilityVersions did not exist as a standalone OSS project in 10.5
     chmod -R u+w build-tree
     cd build-tree/xnu
 
@@ -35,7 +35,6 @@ in stdenv.mkDerivation rec {
     find . -type f \( -name "*.c" -o -name "*.h" \) -exec sed -i 's|/sbin/launchd|/sbin/abzu|g' {} +
 
     echo "==> Attempting baseline kernel configuration..."
-    # Leopard uses a slightly different make target structure
     make ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE config || echo "Config step completed or failed (expected in Phase 3.1)"
   '';
 
