@@ -12,8 +12,13 @@
 #     and got nothing, which silently produced "generated 0 launchd plists".
 #   - Staged as shelf-<name>.json so source identity survives into the store.
 #   - Optionally stages gaming/quiver-defaults.json, which rootfs*.nix copies
-#     as ${packages-shelf}/gaming/quiver-defaults.json. When the source file is
+#     from the shelf under the gaming/ subdirectory. When the source file is
 #     absent the arg is null and the consumer's guard emits a WARN.
+#
+# AUDIT FIX (2026-10-15, B13): a comment inside the runCommand body contained a
+# literal `${packages-shelf}`. Nix parses `${...}` as interpolation even inside
+# what looks like a shell comment, because the whole body is one indented
+# string and `#` has no meaning there. Reworded to avoid the token entirely.
 #
 # NOTE: the per-app derivations in this directory (whisky/iina/intel-sde/
 # tor-browser/lm-studio/mole/davit/antinote/notproton) are deliberately NOT
@@ -34,8 +39,9 @@ runCommand "abzu-packages" {
     cp ${m} $out/usr/local/archives/manifests/shelf-${name}.json
   '') manifests)}
 
-  # Phase 5 quiver defaults, consumed by rootfs*.nix at
-  # ${packages-shelf}/gaming/quiver-defaults.json.
+  # Phase 5 quiver defaults, consumed by rootfs*.nix via the shelf's
+  # gaming/quiver-defaults.json path. Staged only when a source file was
+  # supplied; rootfs*.nix guards its copy with a WARN if the path is absent.
   ${lib.optionalString (quiverDefaults != null) ''
     mkdir -p $out/gaming
     cp ${quiverDefaults} $out/gaming/quiver-defaults.json
