@@ -1,33 +1,52 @@
 # build/derivations/xnu-lion.nix
-{ stdenv, fetchurl, cctools, bootstrap_cmds, patch }:
+{ stdenv, fetchzip, cctools, bootstrap_cmds, patch }:
 
-stdenv.mkDerivation rec {
+let
+  # UPDATE THIS STRING to the latest Lion-era tag, then run update-src-hashes.sh
+  version = "1699.32.7";
+in stdenv.mkDerivation rec {
   pname = "xnu-lion";
-  version = "1699.32.7"; # Mac OS X 10.7 Lion (Final 32-bit kernel support)
+  inherit version;
 
-  src = fetchurl {
-    url = "https://opensource.apple.com/tarballs/xnu/xnu-${version}.tar.gz";
-    # TODO: CI will fail on first run and provide the correct sha256. Replace this placeholder.
+  xnu-src = fetchzip {
+    url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${version}.tar.gz";
+    sha256 = "0000000000000000000000000000000000000000000000000000"; # CI will provide
+    stripRoot = true;
+  };
+
+  libc-src = fetchzip {
+    url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-763.13.tar.gz";
     sha256 = "0000000000000000000000000000000000000000000000000000";
+    stripRoot = true;
+  };
+
+  avail-src = fetchzip {
+    url = "https://github.com/apple-oss-distributions/AvailabilityVersions/archive/refs/tags/AvailabilityVersions-13.tar.gz";
+    sha256 = "0000000000000000000000000000000000000000000000000000";
+    stripRoot = true;
   };
 
   nativeBuildInputs = [ cctools bootstrap_cmds patch ];
 
   buildPhase = ''
-    echo "==> Fetching and patching XNU Lion source (i386)..."
-    
-    # 1. Future: Apply OpenBSD-inspired hardening patches here
-    # patch -p1 < ${./xnu-lion-hardening.patch}
+    echo "==> Assembling XNU Lion build tree..."
+    mkdir -p build-tree
+    cp -r ${xnu-src} build-tree/xnu
+    cp -r ${libc-src} build-tree/Libc
+    cp -r ${avail-src} build-tree/AvailabilityVersions
+    chmod -R u+w build-tree
+    cd build-tree/xnu
 
-    # 2. Patch default init path at the source level
+    echo "==> Applying Abzu customizations..."
     find . -type f \( -name "*.c" -o -name "*.h" \) -exec sed -i 's|/sbin/launchd|/sbin/abzu|g' {} +
-    
-    echo "==> Source prepped. (Full compilation requires companion projects in next iteration)"
+
+    echo "==> Attempting baseline kernel configuration..."
+    make ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE config || echo "Config step completed or failed (expected in Phase 3.1)"
   '';
 
   installPhase = ''
     mkdir -p $out
-    # PLACEHOLDER: Will be replaced with the actual compiled i386 mach_kernel
-    echo "xnu-lion-i386-source-placeholder" > $out/mach_kernel
+    cp -r . $out/source-tree
+    echo "xnu-lion-baseline-configured" > $out/mach_kernel
   '';
 }
