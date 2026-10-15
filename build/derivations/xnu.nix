@@ -31,3 +31,4 @@ stdenv.mkDerivation {
     # Leopard architecture requires the kernel to be named 'mach_kernel'
     cp mach_kernel $out/mach_kernel
   '';
+}
