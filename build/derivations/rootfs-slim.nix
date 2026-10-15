@@ -17,6 +17,10 @@
 # with plain `cp -R`. Matches the fix already applied to rootfs.nix's own audit
 # note ("we strip GNU-specific `--no-preserve` flags to ensure cross-platform
 # compatibility") and keeps the two rootfs variants consistent.
+#
+# AUDIT FIX (2026-10-15, B12): Phase 5 overlay copies are now guarded, matching
+# the change in rootfs.nix. Missing overlays emit a WARN instead of aborting
+# the whole rootfs build.
 { lib, stdenvNoCC, runCommand, xnu-kernel, openbsd-userland, gui-core, cuneiform-input, packages-shelf, phase5-configs }:
 
 runCommand "abzu-rootfs" {
@@ -88,17 +92,29 @@ PLIST
 
   # Copy user skeleton files (vdirsyncer, khal, apple2pi)
   mkdir -p $out/etc/skel/.config
-  cp -R ${phase5-configs}/etc-skel/.config/. \
-         $out/etc/skel/.config/
+  if [ -d ${phase5-configs}/etc-skel/.config ]; then
+    cp -R ${phase5-configs}/etc-skel/.config/. \
+           $out/etc/skel/.config/
+  else
+    echo "WARN: phase5 etc-skel payload absent" >&2
+  fi
 
   # Copy Stellarium defaults to the Darwin application support location
-  mkdir -p $out/Library/Application\ Support/Stellarium
-  cp ${phase5-configs}/stellarium-defaults/config.ini \
-     $out/Library/Application\ Support/Stellarium/
+  mkdir -p "$out/Library/Application Support/Stellarium"
+  if [ -f ${phase5-configs}/stellarium-defaults/config.ini ]; then
+    cp ${phase5-configs}/stellarium-defaults/config.ini \
+       "$out/Library/Application Support/Stellarium/"
+  else
+    echo "WARN: Stellarium defaults absent" >&2
+  fi
 
   # Copy Quiver defaults to a shared system location
   mkdir -p $out/usr/share/abzu/defaults
-  cp ${packages-shelf}/gaming/quiver-defaults.json $out/usr/share/abzu/defaults/
+  if [ -f ${packages-shelf}/gaming/quiver-defaults.json ]; then
+    cp ${packages-shelf}/gaming/quiver-defaults.json $out/usr/share/abzu/defaults/
+  else
+    echo "WARN: quiver-defaults.json absent from packages-shelf — Phase 5 overlay incomplete" >&2
+  fi
 
   # ---- record whether a genuine kernel is present ----------------------------
   if [ -f $out/System/Library/Kernels/kernel ]; then
