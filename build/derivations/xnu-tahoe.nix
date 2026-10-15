@@ -1,15 +1,18 @@
 # build/derivations/xnu-tahoe.nix
 # Anchored to distribution-macOS tag: macos-265
 #
-# AUDIT FIX (2026-10-15, B9):
-#   - xnu  : tag xnu-11215.1.10 (correct)
-#   - Libc : pinned by COMMIT 4e34d0559e3a1b081afeb8604d9e204a1f31321d,
-#            matching distribution-macOS/macos-265. The previous tag
-#            (Libc-1500.100.10) does not exist in apple-oss-distributions.
+# AUDIT FIX (2026-10-15, B17):
+#   - dontUnpack = true. See xnu-leopard.nix for the full rationale.
+#   - xnu  : tag xnu-11215.1.10 (matches distribution-macOS/macos-265).
+#   - Libc : pinned by COMMIT 4e34d0559e3a1b081afeb8604d9e204a1f31321d.
+#            The previous tag (Libc-1500.100.10) does not exist. UNVERIFIED.
 #   - AvailabilityVersions: pinned by COMMIT
-#     149b1777f3e8c2133042d8e188f72e3adf6a7110 (macOS 26.4).
+#     149b1777f3e8c2133042d8e188f72e3adf6a7110. UNVERIFIED.
 #   - bootstrap_cmds: pinned by COMMIT
-#     c71d2d72f48995baaea76148f61002e5299841de (macOS 26.0).
+#     c71d2d72f48995baaea76148f61002e5299841de. UNVERIFIED.
+#
+# HASH RESOLUTION: placeholders resolve via the `got:` line of each
+# fixed-output mismatch. Run `nvwhy <source.drv>` before pasting any value.
 { stdenv, fetchzip, fetchFromGitHub, cctools, patch }:
 
 let
@@ -18,9 +21,10 @@ in stdenv.mkDerivation rec {
   pname = "xnu-tahoe";
   version = xnu-version;
 
+  dontUnpack = true;
+
   xnu-src = fetchzip {
     url = "https://github.com/apple-oss-distributions/xnu/archive/refs/tags/xnu-${xnu-version}.tar.gz";
-    # Placeholder — resolve via the `got:` line.
     sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     stripRoot = true;
   };
@@ -51,10 +55,10 @@ in stdenv.mkDerivation rec {
   buildPhase = ''
     echo "==> Assembling XNU Tahoe build tree (macos-265)..."
     mkdir -p build-tree
-    cp -r ${xnu-src}       build-tree/xnu
-    cp -r ${libc-src}      build-tree/Libc
-    cp -r ${avail-src}     build-tree/AvailabilityVersions
-    cp -r ${bootstrap-src} build-tree/bootstrap_cmds
+    cp -R ${xnu-src}       build-tree/xnu
+    cp -R ${libc-src}      build-tree/Libc
+    cp -R ${avail-src}     build-tree/AvailabilityVersions
+    cp -R ${bootstrap-src} build-tree/bootstrap_cmds
     chmod -R u+w build-tree
     cd build-tree/xnu
 
