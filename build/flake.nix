@@ -20,9 +20,18 @@
       # every consumer argument on both Linux (eval/build of the installer
       # skeleton + ISO dry-run) and Darwin (real XNU kernel builds).
       # Placeholder payloads live in derivations/stubs.nix — search "PLACEHOLDER".
+      #
+      # AUDIT FIX (2026-10-15, B5): `repoRoot` was a dead argument. It was
+      # threaded through mkComponents → openbsd-userland.nix / gnustep.nix
+      # and through both rootfs-intel call sites, but no consumer referenced
+      # it after the 2026-10-11 fixes removed the in-sandbox script calls
+      # (see openbsd-userland.nix / gnustep.nix header notes). rootfs.nix
+      # never even declared it, which produced:
+      #   error: function 'anonymous lambda' called with unexpected argument 'repoRoot'
+      #         at .../rootfs.nix:3:1
+      # The binding and all four `inherit repoRoot;` sites are now removed.
       # ------------------------------------------------------------------
 
-      repoRoot = ../.;
       manifests = [
         ../packages/homelab/manifest.json
         ../packages/gaming/manifest.json
@@ -45,14 +54,12 @@
             skipList   = ../userland/import/skip.txt;
             compatSrc  = ../userland/mach_compat/abzu-compat.c;
             etcOverlay = ../userland/etc;
-            inherit repoRoot;
           };
           cuneiform-input = pkgs.callPackage ./derivations/cuneiform-input.nix {};
           gui-core = pkgs.callPackage ./derivations/gnustep.nix {
             src       = ../gui;
             themeDir  = ../gui/themes/abzu-aqua;
             shellMenu = ../gui/AbzuShell/shell-menu.json;
-            inherit repoRoot;
           };
           packages-shelf = pkgs.callPackage ./derivations/packages.nix {
             inherit manifests;
@@ -77,7 +84,6 @@
             efistub          = c.efistub;
             phase5-configs   = c.phase5-configs;
             packages-shelf   = c.packages-shelf;
-            inherit repoRoot;
           };
           rootfs-slim = pkgs.callPackage ./derivations/rootfs-slim.nix {
             xnu-kernel       = xnu-kernel;
@@ -155,7 +161,6 @@
             efistub          = c.efistub;
             phase5-configs   = c.phase5-configs;
             packages-shelf   = c.packages-shelf;
-            inherit repoRoot;
           };
           rootfs-slim = pkgs.callPackage ./derivations/rootfs-slim.nix {
             xnu-kernel       = kernel-mavericks;
