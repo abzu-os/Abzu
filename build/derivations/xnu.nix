@@ -32,7 +32,8 @@ stdenv.mkDerivation {
     cp mach_kernel $out/mach_kernel
   '';
 
-  meta = {
-    description = "XNU Kernel patched to execute /sbin/abzu instead of launchd";
-  };
+  meta = with lib; {
+  description = "Patched XNU Kernel for Abzu";
+  platforms = platforms.darwin; # Allows both x86_64-darwin and aarch64-darwin
+};
 }
