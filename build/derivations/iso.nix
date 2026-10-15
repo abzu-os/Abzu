@@ -27,7 +27,12 @@ stdenvNoCC.mkDerivation rec {
     mkdir -p work/iso_root
 
     echo "==> Staging rootfs and Abzu components..."
-    cp -r --no-preserve=ownership,mode ${rootfs}/. work/iso_root/
+    # PORTABILITY (2026-10-15, B6): `cp --no-preserve=...` is GNU-only syntax
+    # and matches the pattern that rootfs.nix's own audit note describes as
+    # stripped for cross-platform compatibility. Use plain `cp -R` and
+    # normalize writability afterward so the same command works with BSD cp
+    # (macOS host toolchain) and GNU cp (Linux host toolchain).
+    cp -R ${rootfs}/. work/iso_root/
     chmod -R u+w work/iso_root
 
     # 1. The kernel MUST be at the root of the drive as 'mach_kernel'
@@ -55,7 +60,7 @@ stdenvNoCC.mkDerivation rec {
     # actually boots (El Torito below). Without it the image is dry-run only.
     ${lib.optionalString (efiPayload != null) ''
       mkdir -p work/iso_root/EFI
-      cp -r ${efiPayload}/EFI/. work/iso_root/EFI/
+      cp -R ${efiPayload}/EFI/. work/iso_root/EFI/
       chmod -R u+w work/iso_root/EFI
       find work/iso_root/EFI -type f -name '*.EFI' -exec chmod 755 {} \;
       cat > work/iso_root/EFI/refind/refind.conf <<'REFINDDONE'
@@ -72,7 +77,7 @@ REFINDDONE
     ''}
 
     tar --format=ustar --numeric-owner --owner=0 --group=0 \
-        --mtime="@${builtins.toString 315532800}" \
+        --mtime="1980-01-01 00:00:00 UTC" \
         -C work/iso_root -cf work/ABZU_ROOTFS.tar .
 
     echo "==> Writing ISO9660+Joliet ISO..."
@@ -85,17 +90,24 @@ REFINDDONE
     # El Torito EFI boot catalog + FAT-format ESP image when efiPayload present
     ${lib.optionalString (efiPayload != null) ''
       # small FAT image carrying the ESP tree for -e (EFI bootable)
-      dd if=/dev/zero of=work/esp.img bs=1M count=8 status=none
+      # PORTABILITY (2026-10-15, B6): `dd status=none` is GNU-only; redirect
+      # stderr instead so the same line works with BSD dd.
+      dd if=/dev/zero of=work/esp.img bs=1m count=8 2>/dev/null
       mkfs.vfat -F 12 -n ABZU_EFI work/esp.img >/dev/null
       mmd -i work/esp.img ::/EFI ::/EFI/BOOT ::/EFI/refind
       mcopy -i work/esp.img work/iso_root/EFI/BOOT/BOOTX64.EFI ::/EFI/BOOT/
       [ -f work/iso_root/EFI/BOOT/BOOTIA32.EFI ] && mcopy -i work/esp.img work/iso_root/EFI/BOOT/BOOTIA32.EFI ::/EFI/BOOT/ || true
       mcopy -i work/esp.img work/iso_root/EFI/refind/refind.conf ::/EFI/refind/
       # keep the plain-tree copy too so HFS-style mounts see it
-    ''}xorriso -as mkisofs \
+    ''}# AUDIT FIX (2026-10-15, B6): `-isomax bridge` is not a valid xorriso or
+    # mkisofs flag and aborts the ISO step with a usage error on every host.
+    # EFI El Torito is already wired by `-e work/esp.img --efi-boot work/esp.img`
+    # below; a true hybrid MBR would need `-isohybrid-mbr <path>` plus an MBR
+    # blob, which is not staged here.
+    xorriso -as mkisofs \
       -r -J -joliet-long \
       -V "${volumeLabel}" \
-      ${lib.optionalString (efiPayload != null) "-isomax bridge -e work/esp.img -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot work/esp.img -hide-efi -hidden-efi"} \
+      ${lib.optionalString (efiPayload != null) "-e work/esp.img -no-emul-boot -boot-load-size 4 -boot-info-table --efi-boot work/esp.img -hide-efi -hidden-efi"} \
       -o abzu-intel-installer.iso \
       work/iso_root
 
