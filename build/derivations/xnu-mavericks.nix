@@ -1,23 +1,19 @@
 # build/derivations/xnu-mavericks.nix
 # Anchored to distribution-macOS tag: os-x-1095
 #
-# AUDIT FIX (2026-10-15, B8):
-#   - xnu  : tag xnu-2422.115.4 (matches distribution-macOS/os-x-1095)
-#   - Libc : tag Libc-997.90.3  (matches distribution-macOS/os-x-1095)
-#   - AvailabilityVersions: pinned by COMMIT, not by tag. The distribution
-#     branch os-x-1095 references commit 9e102063d8143f0c20fc2f71ac30af2289751fc2
-#     ("OS X 10.9"). The previous pin ("AvailabilityVersions-22") is a dead tag
-#     and cannot be fetched. Switched to fetchFromGitHub with rev.
-#   - bootstrap_cmds: NOT a submodule of distribution-macOS/os-x-1095. Removed
-#     entirely; nothing in the Phase 3 buildPhase consumes it. Restore at
-#     Phase 3.1 only after identifying a real source for it.
+# AUDIT FIX (2026-10-15, B9):
+#   - xnu  : tag xnu-2422.115.4 (correct; hash already resolved)
+#   - Libc : pinned by COMMIT 423cd697a0961a8eb8eccb38a6d60bf6dfd4f50f,
+#            matching distribution-macOS/os-x-1095. The previous tag
+#            (Libc-997.90.3) exists but the distribution pins a commit.
+#   - AvailabilityVersions: pinned by COMMIT
+#     9e102063d8143f0c20fc2f71ac30af2289751fc2 ("OS X 10.9").
+#     The previous tag (AvailabilityVersions-22) is dead.
+#   - bootstrap_cmds: NOT a submodule of os-x-1095. Removed.
 { stdenv, fetchzip, fetchFromGitHub, cctools, patch }:
 
 let
   version = "2422.115.4";
-
-  # The commit distribution-macOS/os-x-1095 uses for AvailabilityVersions.
-  availabilityVersionsRev = "9e102063d8143f0c20fc2f71ac30af2289751fc2";
 in stdenv.mkDerivation rec {
   pname = "xnu-mavericks";
   inherit version;
@@ -28,25 +24,20 @@ in stdenv.mkDerivation rec {
     stripRoot = true;
   };
 
-  # NOTE ON HASH TYPE: fetchzip hashes the UNPACKED tree. The file hash of the
-  # tarball is not relevant. Fill in the value from the `got:` line of the
-  # fixed-output mismatch, or with:
-  #   nix-prefetch-url --unpack https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-997.90.3.tar.gz
-  #   nix hash convert --hash-algo sha256 --to sri <hash>
-  libc-src = fetchzip {
-    url = "https://github.com/apple-oss-distributions/Libc/archive/refs/tags/Libc-997.90.3.tar.gz";
-    sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
-    stripRoot = true;
+  libc-src = fetchFromGitHub {
+    owner = "apple-oss-distributions";
+    repo  = "Libc";
+    rev   = "423cd697a0961a8eb8eccb38a6d60bf6dfd4f50f";
+    # Placeholder — resolve via the `got:` line.
+    hash  = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 
-  # AvailabilityVersions: pinned by rev, not tag. fetchFromGitHub honors `rev`
-  # directly and produces a tree whose hash is what Nix compares. The same
-  # `got:` round-trip applies; fetchzip-style recursive hashing is implied.
   avail-src = fetchFromGitHub {
-    owner  = "apple-oss-distributions";
-    repo   = "AvailabilityVersions";
-    rev    = availabilityVersionsRev;
-    hash   = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    owner = "apple-oss-distributions";
+    repo  = "AvailabilityVersions";
+    rev   = "9e102063d8143f0c20fc2f71ac30af2289751fc2";
+    # Placeholder — resolve via the `got:` line.
+    hash  = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
   };
 
   nativeBuildInputs = [ cctools patch ];
