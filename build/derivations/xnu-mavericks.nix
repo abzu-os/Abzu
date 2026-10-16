@@ -30,46 +30,8 @@ in stdenv.mkDerivation rec {
     hash  = "sha256-REOzIHg7DvZ30AH8XKLhTSQ4gC3bwoWJ1OlvSHFMRGs=";
   };
 
+  # Added m4 to provide GNU m4 for the gm4 symlink
   nativeBuildInputs = [ cctools patch perl bison flex m4 ];
-
-  preBuild = ''
-    # 1. XNU expects GNU m4 to be named 'gm4'
-    ln -s ${m4}/bin/m4 $PWD/gm4
-    
-    # 2. Fake sw_vers to satisfy XNU's makedefs version checks
-    cat > $PWD/sw_vers << 'EOF'
-    #!/bin/sh
-    echo "ProductName:    Mac OS X"
-    echo "ProductVersion: 10.9.5"
-    echo "BuildVersion:   13F1911"
-    EOF
-    chmod +x $PWD/sw_vers
-
-    # 3. Fake xcrun to bypass XNU's SDK path detection, which fails in Nix sandbox.
-    # We point it to root ('/'). Nix's stdenv clang wrapper already has the correct 
-    # macOS SDK headers in its default include paths, so the build will still find them.
-    cat > $PWD/xcrun << 'EOF'
-    #!/bin/sh
-    if [ "$1" = "--show-sdk-path" ]; then
-      echo "/"
-    else
-      # Fallback to system xcrun if it exists, otherwise just succeed
-      if [ -x /usr/bin/xcrun ]; then
-        exec /usr/bin/xcrun "$@"
-      else
-        echo "/"
-      fi
-    fi
-    EOF
-    chmod +x $PWD/xcrun
-
-    # Prepend current directory to PATH so our faked tools are found first
-    export PATH="$PWD:$PATH"
-    
-    # Explicitly tell make to use our faked environment
-    export SDKROOT="/"
-    export RC_XBS=YES
-  '';
 
   buildPhase = ''
     echo "==> Assembling XNU Mavericks build tree (os-x-1095)..."
@@ -83,11 +45,46 @@ in stdenv.mkDerivation rec {
     echo "==> Applying Abzu customizations..."
     find . -type f \( -name "*.c" -o -name "*.h" \) -exec sed -i 's|/sbin/launchd|/sbin/abzu|g' {} +
 
+    echo "==> Setting up fake build environment for XNU Makefiles..."
+    
+    # 1. Create a fake SDK directory structure to satisfy XNU's makedefs
+    # XNU checks for the existence of /usr/include inside the SDK path.
+    mkdir -p fake-sdk/usr/include
+    mkdir -p fake-sdk/usr/lib
+    FAKE_SDK_PATH="$PWD/fake-sdk"
+    
+    # 2. Create fake xcrun that returns our fake SDK path
+    cat > xcrun << EOF
+    #!/bin/sh
+    if [ "\$1" = "--show-sdk-path" ]; then
+      echo "$FAKE_SDK_PATH"
+    else
+      exec /usr/bin/xcrun "\$@" 2>/dev/null || echo "$FAKE_SDK_PATH"
+    fi
+    EOF
+    chmod +x xcrun
+
+    # 3. Create fake sw_vers to satisfy version checks
+    cat > sw_vers << 'EOF'
+    #!/bin/sh
+    echo "ProductName:    Mac OS X"
+    echo "ProductVersion: 10.9.5"
+    echo "BuildVersion:   13F1911"
+    EOF
+    chmod +x sw_vers
+
+    # 4. Symlink gm4 from nixpkgs m4 (XNU expects GNU m4 to be named gm4)
+    ln -s ${m4}/bin/m4 gm4
+
+    # 5. Prepend current directory to PATH so make finds our fake tools immediately
+    export PATH="$PWD:$PATH"
+    export SDKROOT="$FAKE_SDK_PATH"
+
     echo "==> Attempting XNU kernel compilation (Phase 3.2)..."
     make clean || true
     
-    # Pass SDKROOT=/ to override any internal makefile checks
-    make ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE BUILD_LTO=0 SDKROOT=/
+    # Pass SDKROOT explicitly to make to override any internal makefile checks
+    make ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE BUILD_LTO=0 SDKROOT="$FAKE_SDK_PATH"
   '';
 
   installPhase = ''
