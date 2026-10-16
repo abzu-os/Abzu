@@ -1,20 +1,15 @@
 # build/derivations/abzu-gnustep-rootfs.nix
-{ pkgs, abzu-init, abzu-wallpapers }:
+{ pkgs, abzu-init, abzu-wallpapers, gui-core ? null }:
 
 let
-  # We use the standard Nixpkgs GNUstep packages for stability
-  gnustep-pkgs = with pkgs.gnustep; [
-    make
-    base
-    gui
-    back
-    workspace # GWorkspace (the Finder equivalent)
-    systemprefs
-    terminal
-  ];
+  # Use the project's existing gui-core derivation. 
+  # If it's somehow null, fall back to a minimal stub structure.
+  gnustep-env = if gui-core != null then gui-core else pkgs.runCommand "gnustep-stub" {} ''
+    mkdir -p $out/System/GNUstep
+    echo "GNUstep stub" > $out/System/GNUstep/README
+  '';
 in pkgs.runCommand "abzu-gnustep-rootfs" {
-  # Ensure all GNUstep dependencies are in the closure
-  buildInputs = gnustep-pkgs;
+  buildInputs = [ gnustep-env ];
 } ''
   mkdir -p $out/{sbin,etc/GNUstep/Defaults,Library/Desktop\ Pictures,System/GNUstep}
 
@@ -25,22 +20,17 @@ in pkgs.runCommand "abzu-gnustep-rootfs" {
   # 2. Install the generated wallpapers
   cp -r ${abzu-wallpapers}/Library/Desktop\ Pictures/* "$out/Library/Desktop Pictures/"
 
-  # 3. Assemble the GNUstep environment
-  # We copy the Nix store GNUstep paths into a unified System/GNUstep directory
-  # so the kernel's init can find them predictably at /System/GNUstep
-  for pkg in ${builtins.concatStringsSep " " gnustep-pkgs}; do
-    if [ -d "$pkg/GNUstep" ]; then
-      cp -r --no-preserve=ownership,mode "$pkg/GNUstep/." "$out/System/GNUstep/"
-    fi
-  done
+  # 3. Assemble the GNUstep environment from the project's gui-core
+  if [ -d "${gnustep-env}/System/GNUstep" ]; then
+    cp -r --no-preserve=ownership,mode "${gnustep-env}/System/GNUstep/." "$out/System/GNUstep/"
+  fi
   chmod -R u+w "$out/System/GNUstep"
 
   # 4. Create the system-wide GNUstep Defaults (The "Theming" Contract)
-  # This replicates the GSettings overrides from Abyssolith, but for GNUstep's native XML format
   cat > $out/etc/GNUstep/Defaults/.GNUstepDefaults << 'EOF'
 {
   GSFontAntiAlias = YES;
-  NSInterfaceStyle = metal; /* Gives a more modern, less gray look */
+  NSInterfaceStyle = metal;
   GSColorOnColor = YES;
   NSWorkspaceDesktopPicture = "/Library/Desktop Pictures/Abzu-abyss.png";
   NSFont = "{Name = Helvetica; Size = 12; }";
@@ -49,18 +39,21 @@ in pkgs.runCommand "abzu-gnustep-rootfs" {
 EOF
 
   # 5. Create a simple session launcher that /sbin/abzu can call
-  # This sets up the GNUstep environment variables and launches the Workspace Manager
   cat > $out/sbin/abzu-session << 'EOF'
 #!/bin/sh
 export GNUSTEP_SYSTEM_ROOT=/System/GNUstep
 export GNUSTEP_USER_ROOT=/var/root/GNUstep
 export PATH=$GNUSTEP_SYSTEM_ROOT/Local/Tools:$GNUSTEP_SYSTEM_ROOT/System/Tools:$PATH
 
-# Ensure user defaults directory exists
 mkdir -p "$GNUSTEP_USER_ROOT/Defaults"
 
-# Launch GWorkspace (the GNUstep desktop environment)
-exec openapp GWorkspace
+# Launch GWorkspace (or the project's custom shell)
+if [ -x "$GNUSTEP_SYSTEM_ROOT/Local/Tools/GWorkspace" ]; then
+  exec openapp GWorkspace
+else
+  echo "GNUstep environment loaded. Dropping to shell."
+  exec /bin/sh
+fi
 EOF
   chmod +x $out/sbin/abzu-session
 
