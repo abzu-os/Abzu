@@ -1,53 +1,6 @@
 # build/derivations/xnu-mavericks.nix
 # Anchored to distribution-macOS tag: os-x-1095
-#
-# FINALIZED 2026-10-15. This is the version that produced a successful
-# end-to-end `nix build .#packages.aarch64-darwin.iso-intel` on
-# aarch64-darwin (Mac Mini M4). All three fetchers are hash-pinned; the
-# derivation passes stdenv's default phases and produces
-# $out/source-tree + $out/mach_kernel.
-#
-# AUDIT FIX HISTORY:
-#
-# B9 (2026-10-15): companion pins corrected. The original file pinned
-#   AvailabilityVersions-22 and bootstrap_cmds-87 by tag; neither tag exists
-#   in apple-oss-distributions (404). distribution-macOS/os-x-1095 pins
-#   AvailabilityVersions by COMMIT (9e102063...), and does not include
-#   bootstrap_cmds as a submodule at all. Libc was similarly re-pinned from
-#   a tag to the commit listed in the distribution's submodule table.
-#
-# B10 (2026-10-15): hash misattribution corrected. The `-source.drv` named
-#   in a `hash mismatch` error is a dependency of the derivation named in
-#   the subsequent `Cannot build` error — not necessarily the pin the file
-#   header suggests. `nix derivation show <source.drv>` on the failing
-#   derivation is the authoritative way to identify which fetcher failed.
-#   The `repo`/`owner`/`rev`/`urls` fields of `structuredAttrs` name it
-#   unambiguously.
-#
-# B11 (2026-10-15): added `dontUnpack = true;`. stdenv.mkDerivation's
-#   default unpackPhase expects $src or $srcs; this derivation binds the
-#   three fetched trees as let-locals and copies them inside buildPhase.
-#   Without the flag, the build aborts at unpackPhase with:
-#     variable $src or $srcs should point to the source
-#   Nothing in the file consumes $src, so suppressing the default phase is
-#   the correct fix rather than setting `src = xnu-src;`.
-#
-# PHASE 3.2 UPDATE: Upgraded buildPhase to attempt actual kernel compilation
-# instead of just `make config`, and installPhase to capture the resulting
-# mach_kernel if successful. Added perl, bison, and flex to nativeBuildInputs
-# as they are required by XNU's Makefile.
-#
-# HASH RESOLUTION (all resolved 2026-10-15 via deliberate fixed-output
-# mismatches on aarch64-darwin, cross-checked with `nix derivation show`
-# on each failing -source.drv):
-#   xnu-src  (tag xnu-2422.115.4):                    KsCVPEkr...
-#   libc-src (commit 423cd697..., Libc):              B18RNO+...
-#   avail-src(commit 9e102063..., AvailabilityVersions): REOzIHg7...
-#
-# Values are recursive hashes (unpacked tree), matching what fetchzip and
-# fetchFromGitHub produce. They are NOT file hashes of the downloaded
-# tarballs; `shasum` on a tarball gives a different, wrong value.
-{ stdenv, fetchzip, fetchFromGitHub, cctools, patch, perl, bison, flex }:
+{ stdenv, fetchzip, fetchFromGitHub, cctools, patch, perl, bison, flex, m4 }:
 
 let
   version = "2422.115.4";
@@ -55,8 +8,6 @@ in stdenv.mkDerivation rec {
   pname = "xnu-mavericks";
   inherit version;
 
-  # Skip stdenv's default unpackPhase. Sources are bound below as let-locals
-  # and copied explicitly in buildPhase; nothing here uses $src.
   dontUnpack = true;
 
   xnu-src = fetchzip {
@@ -79,8 +30,46 @@ in stdenv.mkDerivation rec {
     hash  = "sha256-REOzIHg7DvZ30AH8XKLhTSQ4gC3bwoWJ1OlvSHFMRGs=";
   };
 
-  # Added perl, bison, and flex which are required by XNU's Makefile for code generation.
-  nativeBuildInputs = [ cctools patch perl bison flex ];
+  nativeBuildInputs = [ cctools patch perl bison flex m4 ];
+
+  preBuild = ''
+    # 1. XNU expects GNU m4 to be named 'gm4'
+    ln -s ${m4}/bin/m4 $PWD/gm4
+    
+    # 2. Fake sw_vers to satisfy XNU's makedefs version checks
+    cat > $PWD/sw_vers << 'EOF'
+    #!/bin/sh
+    echo "ProductName:    Mac OS X"
+    echo "ProductVersion: 10.9.5"
+    echo "BuildVersion:   13F1911"
+    EOF
+    chmod +x $PWD/sw_vers
+
+    # 3. Fake xcrun to bypass XNU's SDK path detection, which fails in Nix sandbox.
+    # We point it to root ('/'). Nix's stdenv clang wrapper already has the correct 
+    # macOS SDK headers in its default include paths, so the build will still find them.
+    cat > $PWD/xcrun << 'EOF'
+    #!/bin/sh
+    if [ "$1" = "--show-sdk-path" ]; then
+      echo "/"
+    else
+      # Fallback to system xcrun if it exists, otherwise just succeed
+      if [ -x /usr/bin/xcrun ]; then
+        exec /usr/bin/xcrun "$@"
+      else
+        echo "/"
+      fi
+    fi
+    EOF
+    chmod +x $PWD/xcrun
+
+    # Prepend current directory to PATH so our faked tools are found first
+    export PATH="$PWD:$PATH"
+    
+    # Explicitly tell make to use our faked environment
+    export SDKROOT="/"
+    export RC_XBS=YES
+  '';
 
   buildPhase = ''
     echo "==> Assembling XNU Mavericks build tree (os-x-1095)..."
@@ -97,14 +86,13 @@ in stdenv.mkDerivation rec {
     echo "==> Attempting XNU kernel compilation (Phase 3.2)..."
     make clean || true
     
-    # REMOVED the `|| echo` fallback. We NEED Nix to fail and show us the exact compiler error.
-    make ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE BUILD_LTO=0
+    # Pass SDKROOT=/ to override any internal makefile checks
+    make ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE BUILD_LTO=0 SDKROOT=/
   '';
 
   installPhase = ''
     mkdir -p $out
     
-    # Check if the kernel actually built
     if [ -f BUILD/dst/mach_kernel ]; then
       echo "==> 🎉 SUCCESS: Real mach_kernel compiled and found!"
       cp BUILD/dst/mach_kernel $out/mach_kernel
@@ -113,7 +101,6 @@ in stdenv.mkDerivation rec {
       echo "xnu-mavericks-compilation-attempted" > $out/mach_kernel
     fi
     
-    # Keep the source tree for debugging/inspection
     cp -r . $out/source-tree
   '';
 }
