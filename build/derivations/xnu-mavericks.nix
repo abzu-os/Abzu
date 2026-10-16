@@ -51,11 +51,20 @@ in stdenv.mkDerivation rec {
     mkdir -p fake-sdk/usr/lib
     FAKE_SDK_PATH="$PWD/fake-sdk"
     
-    # 2. PATCH THE MAKEFILES: Hardcode SDK paths, bypassing xcrun entirely.
-    # This prevents "unable to find sdk: error:" when xcrun fails in the sandbox.
-    # We replace the xcrun command inside $(shell ...) with a direct echo of our fake path.
-    sed -i 's|xcrun -sdk macosx --show-sdk-path|echo '"$FAKE_SDK_PATH"'|g' makedefs/MakeInc.*
-    sed -i 's|xcrun -sdk macosx --show-sdk-platform-path|echo '"$FAKE_SDK_PATH"'|g' makedefs/MakeInc.*
+    # 2. DEBUG: Print the first 30 lines of the Makefiles to see exactly what they are doing
+    echo "==> DEBUG: Showing first 30 lines of MakeInc.kernel and MakeInc.top..."
+    head -n 30 makedefs/MakeInc.kernel || true
+    head -n 30 makedefs/MakeInc.top || true
+
+    echo "==> Patching Makefiles to hardcode SDK path..."
+    # Remove any hardcoded /usr/bin/ prefixes so our fake xcrun in PATH is used
+    sed -i 's|/usr/bin/xcrun|xcrun|g' makedefs/MakeInc.*
+    
+    # Replace any xcrun --show-sdk-path calls with our fake path (handles -sdk and --sdk)
+    sed -i -E 's|xcrun\s+(-{1,2}sdk\s+macosx\s+)?--show-sdk-path|echo '"$FAKE_SDK_PATH"'|g' makedefs/MakeInc.*
+    
+    # Fallback: just in case it's using a single dash for show-sdk-path
+    sed -i 's|xcrun -show-sdk-path|echo '"$FAKE_SDK_PATH"'|g' makedefs/MakeInc.*
 
     # 3. Fake xcrun for any other tools that might call it
     cat > xcrun << EOF
