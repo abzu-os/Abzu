@@ -51,22 +51,12 @@ in stdenv.mkDerivation rec {
     mkdir -p fake-sdk/usr/lib
     FAKE_SDK_PATH="$PWD/fake-sdk"
     
-    # 2. DEBUG: Print the first 30 lines of the Makefiles to see exactly what they are doing
-    echo "==> DEBUG: Showing first 30 lines of MakeInc.kernel and MakeInc.top..."
-    head -n 30 makedefs/MakeInc.kernel || true
-    head -n 30 makedefs/MakeInc.top || true
-
-    echo "==> Patching Makefiles to hardcode SDK path..."
-    # Remove any hardcoded /usr/bin/ prefixes so our fake xcrun in PATH is used
+    # 2. Patch Makefiles to hardcode SDK path
     sed -i 's|/usr/bin/xcrun|xcrun|g' makedefs/MakeInc.*
-    
-    # Replace any xcrun --show-sdk-path calls with our fake path (handles -sdk and --sdk)
     sed -i -E 's|xcrun\s+(-{1,2}sdk\s+macosx\s+)?--show-sdk-path|echo '"$FAKE_SDK_PATH"'|g' makedefs/MakeInc.*
-    
-    # Fallback: just in case it's using a single dash for show-sdk-path
     sed -i 's|xcrun -show-sdk-path|echo '"$FAKE_SDK_PATH"'|g' makedefs/MakeInc.*
 
-    # 3. Fake xcrun for any other tools that might call it
+    # 3. Fake xcrun
     cat > xcrun << EOF
 #!/bin/sh
 for arg in "\$@"; do
@@ -107,15 +97,29 @@ EOF
     # 6. Symlink gm4 from nixpkgs m4
     ln -s ${m4}/bin/m4 gm4
 
-    # 7. Prepend current directory to PATH so make finds our fake tools immediately
+    # 7. NEW: Fake isysroot to prevent linker errors
+    cat > isysroot << 'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x isysroot
+
+    # 8. NEW: Fake codesign to bypass signing errors
+    cat > codesign << 'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x codesign
+
+    # Prepend current directory to PATH so make finds our fake tools immediately
     export PATH="$PWD:$PATH"
     export SDKROOT="$FAKE_SDK_PATH"
 
     echo "==> Attempting XNU kernel compilation (Phase 3.2)..."
     make clean || true
     
-    # Pass SDKROOT explicitly to make
-    make ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE BUILD_LTO=0 SDKROOT="$FAKE_SDK_PATH"
+    # Pass RC_CCSIGN=NO to force XNU to skip code-signing steps entirely
+    make ARCH_CONFIGS=X86_64 KERNEL_CONFIGS=RELEASE BUILD_LTO=0 SDKROOT="$FAKE_SDK_PATH" RC_CCSIGN=NO
   '';
 
   installPhase = ''
