@@ -51,8 +51,13 @@ in stdenv.mkDerivation rec {
     mkdir -p fake-sdk/usr/lib
     FAKE_SDK_PATH="$PWD/fake-sdk"
     
-    # 2. Bulletproof fake xcrun
-    # Intercepts --show-sdk-path anywhere in the arguments, and -find <tool>
+    # 2. PATCH THE MAKEFILES: Hardcode SDK paths, bypassing xcrun entirely.
+    # This prevents "unable to find sdk: error:" when xcrun fails in the sandbox.
+    # We replace the xcrun command inside $(shell ...) with a direct echo of our fake path.
+    sed -i 's|xcrun -sdk macosx --show-sdk-path|echo '"$FAKE_SDK_PATH"'|g' makedefs/MakeInc.*
+    sed -i 's|xcrun -sdk macosx --show-sdk-platform-path|echo '"$FAKE_SDK_PATH"'|g' makedefs/MakeInc.*
+
+    # 3. Fake xcrun for any other tools that might call it
     cat > xcrun << EOF
 #!/bin/sh
 for arg in "\$@"; do
@@ -69,7 +74,7 @@ exec "\$@"
 EOF
     chmod +x xcrun
 
-    # 3. Fake xcodebuild (just in case XNU probes it for version info)
+    # 4. Fake xcodebuild
     cat > xcodebuild << 'EOF'
 #!/bin/sh
 if [ "$1" = "-version" ]; then
@@ -81,7 +86,7 @@ fi
 EOF
     chmod +x xcodebuild
 
-    # 4. Fake sw_vers
+    # 5. Fake sw_vers
     cat > sw_vers << 'EOF'
 #!/bin/sh
 echo "ProductName:    Mac OS X"
@@ -90,10 +95,10 @@ echo "BuildVersion:   13F1911"
 EOF
     chmod +x sw_vers
 
-    # 5. Symlink gm4 from nixpkgs m4
+    # 6. Symlink gm4 from nixpkgs m4
     ln -s ${m4}/bin/m4 gm4
 
-    # 6. Prepend current directory to PATH so make finds our fake tools immediately
+    # 7. Prepend current directory to PATH so make finds our fake tools immediately
     export PATH="$PWD:$PATH"
     export SDKROOT="$FAKE_SDK_PATH"
 
