@@ -116,6 +116,7 @@
           abzu-rootfs      = pkgs.callPackage ./derivations/abzu-gnustep-rootfs.nix {
             abzu-init = abzu-init-darwin;
             inherit abzu-wallpapers;
+            inherit (c) gui-core; # <--- ADD THIS LINE
           };
 
           rootfs-intel = pkgs.callPackage ./derivations/rootfs.nix {
